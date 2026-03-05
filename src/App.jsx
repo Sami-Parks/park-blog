@@ -1,20 +1,27 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 
 // ============================================================
 // DONNÉES INITIALES
 // ============================================================
 const INITIAL_DATA = {
+  profile: {
+    name: "Sami",
+    bio: "Passionné de parcs d'attractions depuis toujours. Je partage ici mes conseils, mes coups de cœur et mes découvertes pour vous aider à profiter au maximum de chaque visite.",
+    photo: null,
+  },
   parks: [
     {
       id: "disneyland-paris",
       name: "Disneyland Paris",
       emoji: "🏰",
       country: "France",
-      coverColor: "#1a1a2e",
+      coverColor: "#1a1a6e",
       accentColor: "#e8c547",
       visited: "2023",
       globalTip: "Arrivez 30 min avant l'ouverture. Les premières heures sont magiques.",
       heroImage: null,
+      access: { transport: "", parking: "", address: "", hours: "" },
+      tickets: { adult: "", child: "", annualPass: "", tips: "" },
       attractions: [
         {
           id: "space-mountain", name: "Space Mountain", type: "Montagne russe",
@@ -22,6 +29,7 @@ const INITIAL_DATA = {
           duration: "3 min", waitAvg: "60 min",
           tip: "La meilleure attraction du parc. Prenez le FastPass dès l'ouverture.",
           bio: null, photos: [], tags: ["Sensations fortes", "Must-do", "Dans le noir"],
+          status: "open",
         },
         {
           id: "pirates-des-caraibes", name: "Pirates des Caraïbes", type: "Bateau",
@@ -29,8 +37,10 @@ const INITIAL_DATA = {
           duration: "15 min", waitAvg: "25 min",
           tip: "Idéal en milieu de journée quand les files sont longues ailleurs.",
           bio: null, photos: [], tags: ["Famille", "Emblématique", "Intérieur"],
+          status: "open",
         },
       ],
+      restaurants: [],
       shop: {
         categories: [
           { id: "vetements-homme", name: "Vêtements Homme", emoji: "👔" },
@@ -43,24 +53,17 @@ const INITIAL_DATA = {
         ],
         products: [
           {
-            id: "sweat-mickey-gris",
-            name: "Sweat Mickey Classique",
+            id: "sweat-mickey-gris", name: "Sweat Mickey Classique",
             categoryId: "vetements-homme",
-            description: "Sweat molletonné avec broderie Mickey Mouse sur la poitrine. Coupe décontractée, idéal pour les soirées fraîches au parc.",
-            price: 59.99,
-            photos: [],
+            description: "Sweat molletonné avec broderie Mickey Mouse sur la poitrine.",
+            price: 59.99, photos: [],
             sizes: { adulte: ["XS","S","M","L","XL","XXL"], enfant: [] },
             availableSizes: ["XS","S","M","L","XL"],
-            discountEligible: true,
-            noDiscount: false,
+            discountEligible: true, noDiscount: false,
             boutiques: "World of Disney, Disney Fashion",
-            isExclusivity: false,
-            topSale: true,
-            heartPick: false,
-            arrivalDate: "",
-            limitedQty: false,
-            limitedNote: "",
-            tags: ["Mickey", "Sweat", "Broderie"],
+            isExclusivity: false, topSale: true, heartPick: false,
+            arrivalDate: "", limitedQty: false, limitedNote: "",
+            tags: ["Mickey", "Sweat"],
           },
         ],
       },
@@ -70,18 +73,124 @@ const INITIAL_DATA = {
 
 const SIZES_ADULTE = ["XS","S","M","L","XL","XXL"];
 const SIZES_ENFANT = ["2 ans","4 ans","6 ans","8 ans","10 ans","12 ans","14 ans"];
-
 const DISCOUNTS = [
   { key: "cm", label: "CM (Cast Member)", pct: 25, color: "#7c3aed" },
   { key: "gold", label: "Pass Annuel Gold", pct: 15, color: "#d97706" },
   { key: "silver", label: "Pass Annuel Silver", pct: 10, color: "#64748b" },
 ];
 
-// ============================================================
-// HELPERS
-// ============================================================
 function discountedPrice(price, pct) {
   return (price * (1 - pct / 100)).toFixed(2);
+}
+
+// ============================================================
+// CSS GLOBAL
+// ============================================================
+const CSS = `
+  @import url('https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:wght@400;600;700;800;900&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #f5f0e8; color: #0d1b4b; font-family: 'Nunito', sans-serif; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #e8e0cc; }
+  ::-webkit-scrollbar-thumb { background: #0d1b4b; border-radius: 3px; }
+
+  .park-card { transition: transform 0.25s, box-shadow 0.25s; cursor: pointer; }
+  .park-card:hover { transform: translateY(-6px); box-shadow: 0 12px 32px rgba(13,27,75,0.18); }
+
+  .attr-card { transition: transform 0.2s, box-shadow 0.2s; cursor: pointer; }
+  .attr-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(13,27,75,0.15); }
+
+  .btn-primary {
+    background: #e8c547; color: #0d1b4b; border: none;
+    padding: 10px 22px; border-radius: 30px; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 14px; cursor: pointer; transition: all 0.2s;
+    letter-spacing: 0.5px;
+  }
+  .btn-primary:hover { background: #f5d84a; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(232,197,71,0.4); }
+
+  .btn-secondary {
+    background: #0d1b4b; color: #e8c547; border: none;
+    padding: 10px 22px; border-radius: 30px; font-family: 'Nunito', sans-serif;
+    font-weight: 800; font-size: 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .btn-secondary:hover { background: #162266; transform: translateY(-1px); }
+
+  .nav-link { transition: color 0.2s; }
+  .nav-link:hover { color: #e8c547 !important; }
+
+  .tab-btn { transition: all 0.2s; cursor: pointer; }
+  .tab-btn:hover { background: rgba(232,197,71,0.1); }
+
+  .product-card { transition: transform 0.25s, box-shadow 0.25s; cursor: pointer; }
+  .product-card:hover { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(13,27,75,0.15); }
+
+  .hero-bg {
+    background: #0d1b4b;
+    position: relative;
+    overflow: hidden;
+  }
+  .hero-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 70% 50%, rgba(232,197,71,0.12) 0%, transparent 60%),
+                radial-gradient(ellipse at 20% 80%, rgba(232,197,71,0.07) 0%, transparent 50%);
+  }
+  .stripe-accent {
+    background: repeating-linear-gradient(
+      -45deg,
+      transparent,
+      transparent 10px,
+      rgba(232,197,71,0.08) 10px,
+      rgba(232,197,71,0.08) 20px
+    );
+  }
+
+  .input-field {
+    width: 100%; background: #fff; border: 2px solid #e0d8c8;
+    border-radius: 10px; padding: 10px 14px; color: #0d1b4b;
+    font-size: 14px; font-family: 'Nunito', sans-serif; outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-field:focus { border-color: #0d1b4b; }
+
+  .section-label {
+    font-size: 11px; color: #7a8aaa; letter-spacing: 3px;
+    text-transform: uppercase; margin-bottom: 6px; display: block;
+    font-weight: 700;
+  }
+  .badge {
+    font-size: 10px; font-weight: 800; padding: 3px 10px;
+    border-radius: 20px; letter-spacing: 0.5px;
+  }
+  .star { font-size: 15px; }
+  .thrill-star-on { color: #e8c547; }
+  .thrill-star-off { color: #d0c8b0; }
+`;
+
+// ============================================================
+// COMPOSANTS UTILITAIRES
+// ============================================================
+function ThrillStars({ level }) {
+  return (
+    <span>
+      {Array.from({ length: 5 }, (_, i) => (
+        <span key={i} className={`star ${i < level ? "thrill-star-on" : "thrill-star-off"}`}>★</span>
+      ))}
+    </span>
+  );
+}
+
+function AdminInput({ label, value, onChange, type = "text", placeholder, rows }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      {label && <span className="section-label">{label}</span>}
+      {rows
+        ? <textarea rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="input-field" style={{ resize: "vertical" }} />
+        : <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="input-field" />
+      }
+    </div>
+  );
 }
 
 // ============================================================
@@ -104,176 +213,414 @@ function AIBioGenerator({ attraction, parkName, onBioGenerated }) {
       const text = data.content.map(b => b.text || "").join("");
       onBioGenerated(JSON.parse(text.replace(/```json|```/g, "").trim()));
     } catch {
-      onBioGenerated({ intro: "Une attraction incontournable.", experience: "Des sensations uniques.", bestFor: "Toute la famille.", funFact: "Millions de visiteurs chaque année." });
+      onBioGenerated({ intro: "Une attraction incontournable.", experience: "Des sensations uniques.", bestFor: "Toute la famille.", funFact: "Des millions de visiteurs chaque année." });
     }
     setLoading(false);
   };
   return (
-    <button onClick={generate} disabled={loading} style={{ background: loading ? "#333" : "linear-gradient(135deg, #f5a623, #e8c547)", color: loading ? "#888" : "#000", border: "none", padding: "10px 20px", borderRadius: "6px", cursor: loading ? "not-allowed" : "pointer", fontWeight: "700", fontSize: "13px", fontFamily: "inherit" }}>
-      {loading ? "⚡ Génération..." : "✨ Générer la bio avec l'IA"}
+    <button onClick={generate} disabled={loading} className="btn-primary" style={{ opacity: loading ? 0.7 : 1 }}>
+      {loading ? "⚡ Génération en cours..." : "✨ Générer la bio avec l'IA"}
     </button>
   );
 }
 
 // ============================================================
-// STARS
+// NAVIGATION
 // ============================================================
-function ThrillStars({ level }) {
-  return <span>{Array.from({ length: 5 }, (_, i) => <span key={i} style={{ color: i < level ? "#f5a623" : "#333", fontSize: "14px" }}>★</span>)}</span>;
-}
-
-// ============================================================
-// ADMIN INPUT
-// ============================================================
-function AdminInput({ label, value, onChange, type = "text", placeholder, rows }) {
-  const style = { width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "10px 14px", color: "#e8e0d0", fontSize: "14px", fontFamily: "inherit", outline: "none", resize: rows ? "vertical" : undefined };
+function Nav({ mode, setMode, setView, selectedPark, setSelectedPark, setSelectedAttraction, setParkTab, setAdminParkView, data, adminUnlocked }) {
   return (
-    <div style={{ marginBottom: "16px" }}>
-      <label style={{ display: "block", fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "6px", textTransform: "uppercase" }}>{label}</label>
-      {rows ? <textarea rows={rows} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={style} /> : <input type={type} value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} style={style} />}
-    </div>
+    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "#0d1b4b", borderBottom: "3px solid #e8c547", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+        <div
+          onClick={() => { setView(mode === "admin" ? "admin-home" : "home"); setSelectedPark(null); setSelectedAttraction(null); }}
+          style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#e8c547", cursor: "pointer", letterSpacing: 2, lineHeight: 1 }}
+        >
+          SAMI<span style={{ color: "#fff" }}>PARKS</span>
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          {data.parks.map(p => (
+            <button
+              key={p.id}
+              className="nav-link"
+              onClick={() => { setSelectedPark(p.id); setSelectedAttraction(null); setParkTab("attractions"); setAdminParkView("attractions"); setView(mode === "admin" ? "admin-park" : "park"); }}
+              style={{ background: selectedPark === p.id ? "#e8c547" : "transparent", color: selectedPark === p.id ? "#0d1b4b" : "#aab4cc", border: "none", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, transition: "all 0.2s" }}
+            >
+              {p.emoji} {p.name}
+            </button>
+          ))}
+        </div>
+      </div>
+      <button
+        onClick={() => { setMode(mode === "admin" ? "visitor" : "admin"); setView(mode === "admin" ? "home" : "admin-home"); }}
+        style={{ background: mode === "admin" ? "#e8c547" : "transparent", color: mode === "admin" ? "#0d1b4b" : "#aab4cc", border: "1px solid", borderColor: mode === "admin" ? "#e8c547" : "#2a3a6b", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 700 }}
+      >
+        {mode === "admin" ? "⚡ Admin" : "Admin"}
+      </button>
+    </nav>
   );
 }
 
 // ============================================================
-// PRODUCT CARD (visiteur)
+// HOME PAGE
 // ============================================================
-function ProductCard({ product, onClick }) {
+function HomePage({ data, setSelectedPark, setParkTab, setView }) {
   return (
-    <div onClick={onClick} style={{ background: "#111", borderRadius: "16px", overflow: "hidden", cursor: "pointer", border: "1px solid #1e1e1e", transition: "all 0.3s", position: "relative" }}
-      onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; e.currentTarget.style.borderColor = "#f5a623"; }}
-      onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "#1e1e1e"; }}
-    >
-      {/* BADGES */}
-      <div style={{ position: "absolute", top: "10px", left: "10px", display: "flex", flexDirection: "column", gap: "4px", zIndex: 2 }}>
-        {product.topSale && <span style={{ background: "#ef4444", color: "#fff", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px", letterSpacing: "1px" }}>🔥 TOP VENTE</span>}
-        {product.heartPick && <span style={{ background: "#ec4899", color: "#fff", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px" }}>💖 COUP DE CŒUR</span>}
-        {product.limitedQty && <span style={{ background: "#7c3aed", color: "#fff", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px" }}>⚡ LIMITÉ</span>}
-        {product.arrivalDate && <span style={{ background: "#0d9488", color: "#fff", fontSize: "10px", fontWeight: "700", padding: "3px 8px", borderRadius: "4px" }}>🆕 À partir du {product.arrivalDate}</span>}
-      </div>
-      {/* IMAGE */}
-      <div style={{ height: "200px", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        {product.photos.length > 0
-          ? <img src={product.photos[0].url} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          : <span style={{ fontSize: "48px", opacity: 0.3 }}>🛍️</span>}
-      </div>
-      {/* INFOS */}
-      <div style={{ padding: "16px" }}>
-        <p style={{ fontSize: "11px", color: "#888", marginBottom: "4px" }}>{product.boutiques || "Toutes boutiques"}</p>
-        <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "20px", color: "#fff", letterSpacing: "1px", marginBottom: "8px" }}>{product.name}</h3>
-        {/* TAILLES */}
-        <div style={{ display: "flex", gap: "4px", flexWrap: "wrap", marginBottom: "12px" }}>
-          {product.availableSizes.map(s => <span key={s} style={{ fontSize: "10px", color: "#aaa", border: "1px solid #2a2a2a", padding: "2px 7px", borderRadius: "3px" }}>{s}</span>)}
-        </div>
-        {/* PRIX */}
-        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-          <span style={{ fontFamily: "'Bebas Neue'", fontSize: "24px", color: "#f5a623" }}>{product.price.toFixed(2)} €</span>
-          {product.discountEligible && !product.noDiscount && (
-            <span style={{ fontSize: "11px", color: "#4a8", background: "#1a2a1a", padding: "2px 8px", borderRadius: "4px" }}>Remises dispo</span>
+    <div style={{ minHeight: "100vh" }}>
+      {/* HERO */}
+      <div className="hero-bg" style={{ padding: "80px 24px 60px", position: "relative" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gridTemplateColumns: data.profile.photo ? "1fr 1fr" : "1fr", gap: 48, alignItems: "center", position: "relative", zIndex: 1 }}>
+          <div>
+            <div style={{ display: "inline-block", background: "#e8c547", color: "#0d1b4b", fontWeight: 800, fontSize: 11, letterSpacing: 3, padding: "4px 14px", borderRadius: 20, marginBottom: 20 }}>
+              BLOG PARCS D'ATTRACTIONS
+            </div>
+            <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(52px, 8vw, 90px)", color: "#fff", lineHeight: 0.95, letterSpacing: 2, marginBottom: 24 }}>
+              BIENVENUE<br />SUR MON<br /><span style={{ color: "#e8c547" }}>BLOG !</span>
+            </h1>
+            <p style={{ color: "#aab4cc", fontSize: 16, lineHeight: 1.7, maxWidth: 480, marginBottom: 32, fontWeight: 600 }}>
+              {data.profile.bio}
+            </p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="btn-primary" onClick={() => { setSelectedPark(data.parks[0]?.id); setParkTab("attractions"); setView("park"); }}>
+                Découvrir les parcs →
+              </button>
+            </div>
+          </div>
+          {data.profile.photo && (
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{ width: 300, height: 300, borderRadius: "50%", overflow: "hidden", border: "4px solid #e8c547", boxShadow: "0 0 0 8px rgba(232,197,71,0.15)" }}>
+                <img src={data.profile.photo} alt="Sami" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            </div>
           )}
         </div>
+        {/* Stripe décoratif */}
+        <div className="stripe-accent" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8 }} />
+      </div>
+
+      {/* PARCS VISITÉS */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "72px 24px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 40 }}>
+          <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 48, color: "#0d1b4b", letterSpacing: 2 }}>
+            PARCS VISITÉS
+          </h2>
+          <span style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{data.parks.length} parc(s)</span>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
+          {data.parks.map(p => (
+            <div
+              key={p.id}
+              className="park-card"
+              onClick={() => { setSelectedPark(p.id); setParkTab("attractions"); setView("park"); }}
+              style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "2px solid #e8e0cc", boxShadow: "0 4px 16px rgba(13,27,75,0.07)" }}
+            >
+              {/* Bannière colorée */}
+              <div style={{ height: 160, background: `linear-gradient(135deg, ${p.coverColor} 0%, ${p.coverColor}cc 100%)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
+                <div className="stripe-accent" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
+                {p.heroImage
+                  ? <img src={p.heroImage} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
+                  : <span style={{ fontSize: 72, position: "relative", zIndex: 1 }}>{p.emoji}</span>
+                }
+                <div style={{ position: "absolute", bottom: 10, right: 14, fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 700, letterSpacing: 2 }}>{p.visited}</div>
+              </div>
+              <div style={{ padding: 24 }}>
+                <div style={{ fontSize: 11, color: "#e8a500", letterSpacing: 3, textTransform: "uppercase", marginBottom: 6, fontWeight: 800 }}>{p.country}</div>
+                <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 28, color: "#0d1b4b", letterSpacing: 1, marginBottom: 12 }}>{p.name}</h3>
+                <div style={{ display: "flex", gap: 16 }}>
+                  <span style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>🎢 {p.attractions.length} attraction(s)</span>
+                  <span style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>🛍️ {p.shop?.products.length || 0} produit(s)</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 // ============================================================
-// PRODUCT DETAIL (visiteur)
+// PARK PAGE
 // ============================================================
+function ParkPage({ park, parkTab, setParkTab, setSelectedAttraction, setView }) {
+  const tabs = [
+    ["attractions", "🎢 Attractions"],
+    ["restaurants", "🍽️ Restaurants"],
+    ["shop", "🛍️ Boutique"],
+    ["conseils", "💡 Conseils & Accès"],
+  ];
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8" }}>
+      {/* HERO PARC */}
+      <div style={{ background: park.coverColor, padding: "60px 24px 0", position: "relative", overflow: "hidden" }}>
+        <div className="stripe-accent" style={{ position: "absolute", inset: 0, opacity: 0.3 }} />
+        {park.heroImage && <img src={park.heroImage} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.2 }} />}
+        <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center", position: "relative", zIndex: 1, paddingBottom: 40 }}>
+          <div style={{ fontSize: 64, marginBottom: 8 }}>{park.emoji}</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: 4, fontWeight: 700, textTransform: "uppercase" }}>{park.country} · {park.visited}</div>
+          <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(40px,7vw,72px)", color: "#fff", letterSpacing: 3, marginTop: 8 }}>{park.name}</h1>
+        </div>
+        {/* ONGLETS */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 4, position: "relative", zIndex: 1, paddingBottom: 0 }}>
+          {tabs.map(([tab, label]) => (
+            <button
+              key={tab}
+              className="tab-btn"
+              onClick={() => setParkTab(tab)}
+              style={{ background: parkTab === tab ? "#e8c547" : "rgba(255,255,255,0.1)", color: parkTab === tab ? "#0d1b4b" : "rgba(255,255,255,0.7)", border: "none", padding: "12px 20px", borderRadius: "12px 12px 0 0", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: parkTab === tab ? 800 : 600 }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* CONTENU ONGLET */}
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
+        {parkTab === "attractions" && <AttractionsTab park={park} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
+        {parkTab === "restaurants" && <RestaurantsTab park={park} />}
+        {parkTab === "shop" && <ShopTab park={park} />}
+        {parkTab === "conseils" && <ConseilsTab park={park} />}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ONGLET ATTRACTIONS
+// ============================================================
+function AttractionsTab({ park, setSelectedAttraction, setView }) {
+  return (
+    <div>
+      {park.globalTip && (
+        <div style={{ background: "#0d1b4b", borderRadius: 16, padding: "20px 24px", marginBottom: 40, display: "flex", gap: 16, alignItems: "flex-start" }}>
+          <span style={{ fontSize: 24 }}>💡</span>
+          <div>
+            <div style={{ fontSize: 11, color: "#e8c547", letterSpacing: 3, fontWeight: 800, marginBottom: 6 }}>MON CONSEIL GLOBAL</div>
+            <p style={{ color: "#e8e0d0", lineHeight: 1.7, fontWeight: 600 }}>{park.globalTip}</p>
+          </div>
+        </div>
+      )}
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 28 }}>
+        ATTRACTIONS ({park.attractions.length})
+      </h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 20 }}>
+        {park.attractions.map(attr => (
+          <div
+            key={attr.id}
+            className="attr-card"
+            onClick={() => { setSelectedAttraction(attr.id); setView("attraction"); }}
+            style={{ background: "#fff", borderRadius: 16, overflow: "hidden", border: "2px solid #e8e0cc" }}
+          >
+            {/* Photo ou placeholder */}
+            <div style={{ height: 180, background: `linear-gradient(135deg, ${park.coverColor}22, ${park.coverColor}44)`, position: "relative", overflow: "hidden" }}>
+              {attr.photos.length > 0
+                ? <img src={attr.photos[0].url} alt={attr.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48, color: park.coverColor, opacity: 0.4 }}>🎢</div>
+              }
+              {attr.status === "closed" && (
+                <div style={{ position: "absolute", top: 10, left: 10, background: "#ef4444", color: "#fff", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>FERMÉ</div>
+              )}
+              {attr.fastpass && (
+                <div style={{ position: "absolute", top: 10, right: 10, background: "#e8c547", color: "#0d1b4b", fontSize: 10, fontWeight: 800, padding: "3px 10px", borderRadius: 20, letterSpacing: 1 }}>FASTPASS</div>
+              )}
+            </div>
+            <div style={{ padding: 16 }}>
+              <div style={{ fontSize: 10, color: "#7a8aaa", fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4 }}>{attr.type}</div>
+              <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", letterSpacing: 1, marginBottom: 8 }}>{attr.name}</h3>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <ThrillStars level={attr.thrill} />
+                <span style={{ fontSize: 12, color: "#7a8aaa", fontWeight: 700 }}>{attr.waitAvg || "—"}</span>
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 10 }}>
+                {attr.tags.slice(0, 2).map(t => (
+                  <span key={t} style={{ fontSize: 10, color: "#0d1b4b", background: "#f0e8cc", padding: "2px 10px", borderRadius: 20, fontWeight: 700 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ONGLET RESTAURANTS
+// ============================================================
+function RestaurantsTab({ park }) {
+  if (!park.restaurants || park.restaurants.length === 0) {
+    return (
+      <div style={{ textAlign: "center", padding: "80px 24px", color: "#7a8aaa" }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🍽️</div>
+        <p style={{ fontWeight: 700, fontSize: 16 }}>Aucun restaurant référencé pour ce parc.</p>
+        <p style={{ fontSize: 14, marginTop: 8 }}>Ajoutez-en via le mode Admin !</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 28 }}>RESTAURANTS</h2>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
+        {park.restaurants.map(r => (
+          <div key={r.id} style={{ background: "#fff", borderRadius: 16, overflow: "hidden", border: "2px solid #e8e0cc" }}>
+            <div style={{ height: 160, background: "#f0e8cc", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+              {r.photos?.length > 0 ? <img src={r.photos[0].url} alt={r.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 48 }}>🍽️</span>}
+            </div>
+            <div style={{ padding: 16 }}>
+              <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 6 }}>{r.name}</h3>
+              <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 600 }}>{r.type}</p>
+              {r.priceRange && <p style={{ color: "#e8a500", fontWeight: 800, marginTop: 6 }}>{r.priceRange}</p>}
+              {r.tip && <p style={{ color: "#0d1b4b", fontSize: 13, marginTop: 8, lineHeight: 1.6 }}>💡 {r.tip}</p>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ONGLET BOUTIQUE
+// ============================================================
+function ShopTab({ park }) {
+  const [activeCategory, setActiveCategory] = useState("all");
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const shop = park.shop;
+
+  if (!shop) return <div style={{ padding: 60, textAlign: "center", color: "#7a8aaa" }}>Boutique non disponible.</div>;
+  if (selectedProduct) return <ProductDetail product={selectedProduct} onBack={() => setSelectedProduct(null)} parkColor={park.coverColor} />;
+
+  const filtered = activeCategory === "all" ? shop.products : shop.products.filter(p => p.categoryId === activeCategory);
+  const heartProducts = shop.products.filter(p => p.heartPick);
+  const newProducts = shop.products.filter(p => p.arrivalDate);
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 8 }}>🛍️ BOUTIQUE</h2>
+      <p style={{ color: "#7a8aaa", fontWeight: 700, marginBottom: 32 }}>{shop.products.length} produit(s) référencé(s)</p>
+
+      {heartProducts.length > 0 && (
+        <div style={{ marginBottom: 48 }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 30, color: "#ec4899", letterSpacing: 1, marginBottom: 20 }}>💖 COUPS DE CŒUR</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+            {heartProducts.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
+          </div>
+        </div>
+      )}
+
+      {newProducts.length > 0 && (
+        <div style={{ marginBottom: 48 }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 30, color: "#0d9488", letterSpacing: 1, marginBottom: 20 }}>🆕 NOUVEAUTÉS</h3>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+            {newProducts.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: 24 }}>
+        <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 30, color: "#0d1b4b", letterSpacing: 1, marginBottom: 16 }}>COLLECTIONS</h3>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button onClick={() => setActiveCategory("all")} className="btn-primary" style={{ background: activeCategory === "all" ? "#e8c547" : "#e8e0cc", color: "#0d1b4b", fontSize: 13 }}>
+            Tout ({shop.products.length})
+          </button>
+          {shop.categories.map(cat => {
+            const count = shop.products.filter(p => p.categoryId === cat.id).length;
+            if (count === 0) return null;
+            return (
+              <button key={cat.id} onClick={() => setActiveCategory(cat.id)} className="btn-primary" style={{ background: activeCategory === cat.id ? "#e8c547" : "#e8e0cc", color: "#0d1b4b", fontSize: 13 }}>
+                {cat.emoji} {cat.name} ({count})
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {filtered.length > 0
+        ? <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+            {filtered.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
+          </div>
+        : <div style={{ textAlign: "center", padding: 60, color: "#7a8aaa" }}>Aucun produit dans cette catégorie.</div>
+      }
+    </div>
+  );
+}
+
+function ProductCard({ product, onClick }) {
+  return (
+    <div onClick={onClick} className="product-card" style={{ background: "#fff", borderRadius: 16, overflow: "hidden", border: "2px solid #e8e0cc" }}>
+      <div style={{ height: 200, background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center", position: "relative" }}>
+        {product.photos.length > 0
+          ? <img src={product.photos[0].url} alt={product.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+          : <span style={{ fontSize: 48, opacity: 0.3 }}>🛍️</span>}
+        <div style={{ position: "absolute", top: 8, left: 8, display: "flex", flexDirection: "column", gap: 4 }}>
+          {product.topSale && <span className="badge" style={{ background: "#ef4444", color: "#fff" }}>🔥 TOP</span>}
+          {product.heartPick && <span className="badge" style={{ background: "#ec4899", color: "#fff" }}>💖</span>}
+          {product.limitedQty && <span className="badge" style={{ background: "#7c3aed", color: "#fff" }}>⚡ LIMITÉ</span>}
+        </div>
+      </div>
+      <div style={{ padding: 16 }}>
+        <p style={{ fontSize: 11, color: "#7a8aaa", marginBottom: 4, fontWeight: 700 }}>{product.boutiques || "Toutes boutiques"}</p>
+        <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 20, color: "#0d1b4b", letterSpacing: 1, marginBottom: 8 }}>{product.name}</h3>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 10 }}>
+          {product.availableSizes.map(s => <span key={s} style={{ fontSize: 10, color: "#7a8aaa", border: "1px solid #e8e0cc", padding: "2px 7px", borderRadius: 4, fontWeight: 700 }}>{s}</span>)}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontFamily: "'Bangers', cursive", fontSize: 24, color: "#e8a500" }}>{product.price.toFixed(2)} €</span>
+          {product.discountEligible && !product.noDiscount && <span style={{ fontSize: 11, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>Remises dispo</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ProductDetail({ product, onBack, parkColor }) {
   const [activePhoto, setActivePhoto] = useState(0);
   return (
-    <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-      <div style={{ background: `linear-gradient(135deg, ${parkColor}44 0%, #0d0d0d 100%)`, padding: "60px 24px 40px", borderBottom: "1px solid #1a1a1a" }}>
-        <div style={{ maxWidth: "1000px", margin: "0 auto" }}>
-          <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#888", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", marginBottom: "24px", display: "flex", alignItems: "center", gap: "6px" }}>
-            ← Retour à la boutique
-          </button>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "48px", alignItems: "start" }}>
-            {/* PHOTOS */}
-            <div>
-              <div style={{ borderRadius: "16px", overflow: "hidden", aspectRatio: "4/3", background: "#1a1a1a", marginBottom: "12px" }}>
-                {product.photos.length > 0
-                  ? <img src={product.photos[activePhoto]?.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "80px", opacity: 0.2 }}>🛍️</div>}
-              </div>
-              {product.photos.length > 1 && (
-                <div style={{ display: "flex", gap: "8px" }}>
-                  {product.photos.map((p, i) => (
-                    <div key={i} onClick={() => setActivePhoto(i)} style={{ width: "64px", height: "64px", borderRadius: "8px", overflow: "hidden", cursor: "pointer", border: `2px solid ${i === activePhoto ? "#f5a623" : "transparent"}` }}>
-                      <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+    <div>
+      <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#7a8aaa", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, fontSize: 13, marginBottom: 24, display: "flex", alignItems: "center", gap: 6 }}>← Retour à la boutique</button>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "start" }}>
+        <div>
+          <div style={{ borderRadius: 16, overflow: "hidden", aspectRatio: "4/3", background: "#f5f0e8", marginBottom: 10 }}>
+            {product.photos.length > 0
+              ? <img src={product.photos[activePhoto]?.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              : <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80, opacity: 0.2 }}>🛍️</div>}
+          </div>
+          {product.photos.length > 1 && (
+            <div style={{ display: "flex", gap: 8 }}>
+              {product.photos.map((p, i) => (
+                <div key={i} onClick={() => setActivePhoto(i)} style={{ width: 64, height: 64, borderRadius: 8, overflow: "hidden", cursor: "pointer", border: `2px solid ${i === activePhoto ? "#e8c547" : "transparent"}` }}>
+                  <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+          <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 8 }}>{product.name}</h1>
+          {product.boutiques && <p style={{ color: "#7a8aaa", fontSize: 13, marginBottom: 16, fontWeight: 700 }}>📍 {product.isExclusivity ? "Exclusivité — " : ""}{product.boutiques}</p>}
+          <p style={{ color: "#0d1b4b", lineHeight: 1.7, marginBottom: 24 }}>{product.description}</p>
+          <div style={{ background: "#fff", borderRadius: 14, padding: 20, border: "2px solid #e8e0cc", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 12 }}>
+              <span style={{ fontFamily: "'Bangers', cursive", fontSize: 36, color: "#e8a500" }}>{product.price.toFixed(2)} €</span>
+              <span style={{ fontSize: 13, color: "#7a8aaa", fontWeight: 700 }}>Prix public</span>
+            </div>
+            {product.discountEligible && !product.noDiscount && (
+              <div>
+                <span className="section-label">PRIX AVEC VOTRE PASS</span>
+                <div style={{ display: "grid", gap: 8, marginTop: 8 }}>
+                  {DISCOUNTS.map(d => (
+                    <div key={d.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f5f0e8", borderRadius: 8, padding: "10px 14px", border: `1px solid ${d.color}44` }}>
+                      <div>
+                        <span style={{ fontSize: 13, color: d.color, fontWeight: 700 }}>{d.label}</span>
+                        <span style={{ fontSize: 11, color: "#7a8aaa", marginLeft: 8 }}>-{d.pct}%</span>
+                      </div>
+                      <span style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: d.color }}>{discountedPrice(product.price, d.pct)} €</span>
                     </div>
                   ))}
                 </div>
-              )}
-            </div>
-            {/* INFOS */}
-            <div>
-              <div style={{ display: "flex", gap: "8px", marginBottom: "12px", flexWrap: "wrap" }}>
-                {product.topSale && <span style={{ background: "#ef4444", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "4px 12px", borderRadius: "4px" }}>🔥 TOP VENTE</span>}
-                {product.heartPick && <span style={{ background: "#ec4899", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "4px 12px", borderRadius: "4px" }}>💖 COUP DE CŒUR</span>}
-                {product.limitedQty && <span style={{ background: "#7c3aed", color: "#fff", fontSize: "11px", fontWeight: "700", padding: "4px 12px", borderRadius: "4px" }}>⚡ {product.limitedNote || "Quantité limitée"}</span>}
               </div>
-              <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", lineHeight: 1, marginBottom: "12px" }}>{product.name}</h1>
-              {product.arrivalDate && <p style={{ color: "#0d9488", fontSize: "13px", marginBottom: "8px" }}>🆕 Disponible à partir du {product.arrivalDate}</p>}
-              {product.boutiques && <p style={{ color: "#888", fontSize: "13px", marginBottom: "16px" }}>📍 {product.isExclusivity ? "Exclusivité " : ""}{product.boutiques}</p>}
-              <p style={{ color: "#aaa", lineHeight: 1.7, marginBottom: "24px" }}>{product.description}</p>
-
-              {/* TAILLES */}
-              {(product.sizes.adulte.length > 0 || product.sizes.enfant.length > 0) && (
-                <div style={{ marginBottom: "24px" }}>
-                  <div style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "10px" }}>TAILLES DISPONIBLES</div>
-                  {product.sizes.adulte.length > 0 && (
-                    <div style={{ marginBottom: "8px" }}>
-                      <span style={{ fontSize: "11px", color: "#555", marginRight: "8px" }}>Adulte :</span>
-                      <div style={{ display: "inline-flex", gap: "6px", flexWrap: "wrap" }}>
-                        {product.sizes.adulte.map(s => {
-                          const avail = product.availableSizes.includes(s);
-                          return <span key={s} style={{ fontSize: "12px", color: avail ? "#e8e0d0" : "#333", border: `1px solid ${avail ? "#555" : "#222"}`, padding: "4px 10px", borderRadius: "4px", textDecoration: avail ? "none" : "line-through" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                  {product.sizes.enfant.length > 0 && (
-                    <div>
-                      <span style={{ fontSize: "11px", color: "#555", marginRight: "8px" }}>Enfant :</span>
-                      <div style={{ display: "inline-flex", gap: "6px", flexWrap: "wrap" }}>
-                        {product.sizes.enfant.map(s => {
-                          const avail = product.availableSizes.includes(s);
-                          return <span key={s} style={{ fontSize: "12px", color: avail ? "#e8e0d0" : "#333", border: `1px solid ${avail ? "#555" : "#222"}`, padding: "4px 10px", borderRadius: "4px", textDecoration: avail ? "none" : "line-through" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* PRIX */}
-              <div style={{ background: "#111", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e1e" }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: "12px", marginBottom: "16px" }}>
-                  <span style={{ fontFamily: "'Bebas Neue'", fontSize: "36px", color: "#f5a623" }}>{product.price.toFixed(2)} €</span>
-                  <span style={{ fontSize: "13px", color: "#555" }}>Prix public</span>
-                </div>
-                {product.discountEligible && !product.noDiscount ? (
-                  <div>
-                    <div style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "10px" }}>PRIX AVEC VOTRE PASS</div>
-                    <div style={{ display: "grid", gap: "8px" }}>
-                      {DISCOUNTS.map(d => (
-                        <div key={d.key} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", background: "#0d0d0d", borderRadius: "8px", padding: "10px 14px", border: `1px solid ${d.color}33` }}>
-                          <div>
-                            <span style={{ fontSize: "12px", color: d.color, fontWeight: "600" }}>{d.label}</span>
-                            <span style={{ fontSize: "11px", color: "#555", marginLeft: "8px" }}>-{d.pct}%</span>
-                          </div>
-                          <span style={{ fontFamily: "'Bebas Neue'", fontSize: "22px", color: d.color }}>{discountedPrice(product.price, d.pct)} €</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : product.noDiscount ? (
-                  <p style={{ fontSize: "12px", color: "#555", fontStyle: "italic" }}>⚠️ Ce produit ne bénéficie d'aucune remise pass/CM.</p>
-                ) : null}
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -282,85 +629,122 @@ function ProductDetail({ product, onBack, parkColor }) {
 }
 
 // ============================================================
-// SHOP PAGE (visiteur)
+// ONGLET CONSEILS & ACCÈS
 // ============================================================
-function ShopPage({ park }) {
-  const [activeCategory, setActiveCategory] = useState("all");
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [filterTag, setFilterTag] = useState(null);
-
-  const shop = park.shop;
-  if (!shop) return <div style={{ padding: "60px 24px", color: "#555", textAlign: "center" }}>Boutique non disponible pour ce parc.</div>;
-
-  if (selectedProduct) {
-    return <ProductDetail product={selectedProduct} onBack={() => setSelectedProduct(null)} parkColor={park.coverColor} />;
-  }
-
-  const heartProducts = shop.products.filter(p => p.heartPick);
-  const topProducts = shop.products.filter(p => p.topSale);
-  const newProducts = shop.products.filter(p => p.arrivalDate);
-
-  const filtered = activeCategory === "all" ? shop.products : shop.products.filter(p => p.categoryId === activeCategory);
-
+function ConseilsTab({ park }) {
   return (
-    <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-      {/* HERO BOUTIQUE */}
-      <div style={{ background: `linear-gradient(135deg, ${park.coverColor} 0%, #0d0d0d 100%)`, padding: "60px 24px 40px", textAlign: "center" }}>
-        <div style={{ fontSize: "11px", color: park.accentColor, letterSpacing: "5px", textTransform: "uppercase", marginBottom: "12px" }}>Boutique officielle</div>
-        <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "clamp(48px, 8vw, 80px)", color: "#fff", letterSpacing: "3px" }}>{park.emoji} {park.name}</h1>
-        <p style={{ color: "#888", marginTop: "12px", fontSize: "14px" }}>Guide shopping pour préparer votre budget — {shop.products.length} produit(s) référencé(s)</p>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+      {/* Conseil global */}
+      {park.globalTip && (
+        <div style={{ gridColumn: "1/-1", background: "#0d1b4b", borderRadius: 16, padding: 28 }}>
+          <div style={{ fontSize: 11, color: "#e8c547", letterSpacing: 3, fontWeight: 800, marginBottom: 10 }}>💡 MON CONSEIL GLOBAL</div>
+          <p style={{ color: "#e8e0d0", lineHeight: 1.8, fontSize: 16, fontWeight: 600 }}>{park.globalTip}</p>
+        </div>
+      )}
+
+      {/* Accès & Transport */}
+      <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "2px solid #e8e0cc" }}>
+        <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#0d1b4b", letterSpacing: 1, marginBottom: 16 }}>🚆 ACCÈS & TRANSPORT</h3>
+        {park.access?.address && <p style={{ color: "#0d1b4b", marginBottom: 8, fontWeight: 600 }}>📍 {park.access.address}</p>}
+        {park.access?.transport && <p style={{ color: "#0d1b4b", lineHeight: 1.7 }}>{park.access.transport}</p>}
+        {park.access?.parking && <p style={{ color: "#0d1b4b", marginTop: 10, lineHeight: 1.7 }}>🅿️ {park.access.parking}</p>}
+        {park.access?.hours && <p style={{ color: "#e8a500", marginTop: 10, fontWeight: 800 }}>⏰ {park.access.hours}</p>}
+        {!park.access?.address && !park.access?.transport && (
+          <p style={{ color: "#7a8aaa", fontSize: 14 }}>Informations à renseigner via le mode Admin.</p>
+        )}
       </div>
 
-      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "48px 24px" }}>
-
-        {/* COUPS DE CŒUR */}
-        {heartProducts.length > 0 && (
-          <div style={{ marginBottom: "56px" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "24px" }}>
-              <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "32px", color: "#ec4899", letterSpacing: "2px" }}>💖 COUPS DE CŒUR</h2>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
-              {heartProducts.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
-            </div>
-          </div>
+      {/* Billets */}
+      <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "2px solid #e8e0cc" }}>
+        <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#0d1b4b", letterSpacing: 1, marginBottom: 16 }}>🎟️ BILLETS & TARIFS</h3>
+        {park.tickets?.adult && <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0e8d0" }}><span style={{ fontWeight: 700 }}>Adulte</span><span style={{ color: "#e8a500", fontWeight: 800 }}>{park.tickets.adult}</span></div>}
+        {park.tickets?.child && <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #f0e8d0" }}><span style={{ fontWeight: 700 }}>Enfant</span><span style={{ color: "#e8a500", fontWeight: 800 }}>{park.tickets.child}</span></div>}
+        {park.tickets?.annualPass && <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0" }}><span style={{ fontWeight: 700 }}>Pass Annuel</span><span style={{ color: "#e8a500", fontWeight: 800 }}>{park.tickets.annualPass}</span></div>}
+        {park.tickets?.tips && <p style={{ color: "#0d1b4b", marginTop: 12, lineHeight: 1.7, fontSize: 14 }}>💡 {park.tickets.tips}</p>}
+        {!park.tickets?.adult && !park.tickets?.child && (
+          <p style={{ color: "#7a8aaa", fontSize: 14 }}>Tarifs à renseigner via le mode Admin.</p>
         )}
+      </div>
+    </div>
+  );
+}
 
-        {/* NOUVEAUTÉS */}
-        {newProducts.length > 0 && (
-          <div style={{ marginBottom: "56px" }}>
-            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "32px", color: "#0d9488", letterSpacing: "2px", marginBottom: "24px" }}>🆕 NOUVEAUTÉS</h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
-              {newProducts.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
-            </div>
+// ============================================================
+// ATTRACTION DETAIL
+// ============================================================
+function AttractionPage({ attraction, park, onBack }) {
+  if (!attraction || !park) return null;
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8" }}>
+      <div style={{ background: park.coverColor, padding: "60px 24px 48px", position: "relative", overflow: "hidden" }}>
+        <div className="stripe-accent" style={{ position: "absolute", inset: 0, opacity: 0.3 }} />
+        <div style={{ maxWidth: 900, margin: "0 auto", position: "relative", zIndex: 1 }}>
+          <button onClick={onBack} style={{ background: "rgba(255,255,255,0.15)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, padding: "6px 16px", borderRadius: 20, marginBottom: 20 }}>← {park.name}</button>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: 3, fontWeight: 700, textTransform: "uppercase", marginBottom: 8 }}>{attraction.type}</div>
+          <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(44px, 7vw, 76px)", color: "#fff", letterSpacing: 3, lineHeight: 0.95, marginBottom: 20 }}>{attraction.name}</h1>
+          <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+            <div><span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>SENSATIONS</span><ThrillStars level={attraction.thrill} /></div>
+            {attraction.minHeight && <div><span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>TAILLE MIN.</span><span style={{ color: "#e8c547", fontWeight: 800 }}>{attraction.minHeight} cm</span></div>}
+            <div><span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>DURÉE</span><span style={{ color: "#fff", fontWeight: 700 }}>{attraction.duration || "—"}</span></div>
+            <div><span className="section-label" style={{ color: "rgba(255,255,255,0.5)" }}>ATTENTE MOY.</span><span style={{ color: "#fff", fontWeight: 700 }}>{attraction.waitAvg || "—"}</span></div>
           </div>
-        )}
-
-        {/* CATÉGORIES */}
-        <div style={{ marginBottom: "32px" }}>
-          <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "32px", color: "#fff", letterSpacing: "2px", marginBottom: "20px" }}>COLLECTIONS</h2>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button onClick={() => setActiveCategory("all")} style={{ background: activeCategory === "all" ? "#f5a623" : "#1a1a1a", color: activeCategory === "all" ? "#000" : "#888", border: "none", padding: "8px 18px", borderRadius: "20px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", fontWeight: "600" }}>
-              Tout voir ({shop.products.length})
-            </button>
-            {shop.categories.map(cat => {
-              const count = shop.products.filter(p => p.categoryId === cat.id).length;
-              if (count === 0) return null;
-              return (
-                <button key={cat.id} onClick={() => setActiveCategory(cat.id)} style={{ background: activeCategory === cat.id ? "#f5a623" : "#1a1a1a", color: activeCategory === cat.id ? "#000" : "#888", border: "none", padding: "8px 18px", borderRadius: "20px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px" }}>
-                  {cat.emoji} {cat.name} ({count})
-                </button>
-              );
-            })}
+          <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+            {attraction.fastpass && <span className="badge" style={{ background: "#e8c547", color: "#0d1b4b" }}>⚡ FASTPASS</span>}
+            {attraction.singleRider && <span className="badge" style={{ background: "rgba(255,255,255,0.2)", color: "#fff" }}>👤 SINGLE RIDER</span>}
+            {!attraction.minHeight && <span className="badge" style={{ background: "rgba(22,163,74,0.3)", color: "#86efac" }}>👨‍👩‍👧 TOUT PUBLIC</span>}
           </div>
         </div>
+      </div>
 
-        {/* GRILLE PRODUITS */}
-        {filtered.length > 0 ? (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: "20px" }}>
-            {filtered.map(p => <ProductCard key={p.id} product={p} onClick={() => setSelectedProduct(p)} />)}
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "48px 24px" }}>
+        {/* Tags */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 36 }}>
+          {attraction.tags.map(t => <span key={t} style={{ fontSize: 12, color: "#0d1b4b", background: "#f0e8cc", padding: "4px 14px", borderRadius: 20, fontWeight: 700 }}>{t}</span>)}
+        </div>
+
+        {/* Bio IA */}
+        {attraction.bio ? (
+          <div style={{ background: "#fff", borderRadius: 16, padding: 32, marginBottom: 32, border: "2px solid #e8e0cc" }}>
+            <div style={{ fontSize: 11, color: "#e8a500", letterSpacing: 3, fontWeight: 800, marginBottom: 16 }}>✨ PRÉSENTATION</div>
+            <p style={{ color: "#0d1b4b", fontSize: 17, lineHeight: 1.8, marginBottom: 16, fontStyle: "italic", fontWeight: 600 }}>{attraction.bio.intro}</p>
+            <p style={{ color: "#4a5568", lineHeight: 1.7, marginBottom: 16 }}>{attraction.bio.experience}</p>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginTop: 20 }}>
+              <div style={{ background: "#f5f0e8", borderRadius: 10, padding: 16 }}>
+                <div style={{ fontSize: 10, color: "#7a8aaa", letterSpacing: 2, fontWeight: 800, marginBottom: 8 }}>IDÉAL POUR</div>
+                <p style={{ color: "#0d1b4b", fontSize: 14, lineHeight: 1.6 }}>{attraction.bio.bestFor}</p>
+              </div>
+              <div style={{ background: "#fffbea", borderRadius: 10, padding: 16, border: "1px solid #fde68a" }}>
+                <div style={{ fontSize: 10, color: "#e8a500", letterSpacing: 2, fontWeight: 800, marginBottom: 8 }}>LE SAVIEZ-VOUS ?</div>
+                <p style={{ color: "#0d1b4b", fontSize: 14, lineHeight: 1.6 }}>{attraction.bio.funFact}</p>
+              </div>
+            </div>
           </div>
         ) : (
-          <div style={{ textAlign: "center", padding: "60px", color: "#555" }}>Aucun produit dans cette catégorie pour l'instant.</div>
+          <div style={{ background: "#fff", border: "2px dashed #e8e0cc", borderRadius: 14, padding: 32, textAlign: "center", marginBottom: 32 }}>
+            <p style={{ color: "#7a8aaa", fontWeight: 700 }}>Bio non encore générée — disponible en mode Admin</p>
+          </div>
+        )}
+
+        {/* Conseil */}
+        {attraction.tip && (
+          <div style={{ borderLeft: "4px solid #e8c547", paddingLeft: 24, marginBottom: 32 }}>
+            <div style={{ fontSize: 10, color: "#e8a500", letterSpacing: 3, fontWeight: 800, marginBottom: 8 }}>💡 MON CONSEIL</div>
+            <p style={{ color: "#0d1b4b", lineHeight: 1.7, fontSize: 15, fontWeight: 600 }}>{attraction.tip}</p>
+          </div>
+        )}
+
+        {/* Photos */}
+        {attraction.photos.length > 0 && (
+          <div>
+            <div style={{ fontSize: 11, color: "#7a8aaa", letterSpacing: 3, fontWeight: 800, marginBottom: 16 }}>📷 PHOTOS</div>
+            <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(attraction.photos.length, 3)}, 1fr)`, gap: 8 }}>
+              {attraction.photos.map((photo, i) => (
+                <div key={i} style={{ borderRadius: 12, overflow: "hidden", aspectRatio: "16/9" }}>
+                  <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -368,28 +752,261 @@ function ShopPage({ park }) {
 }
 
 // ============================================================
-// ADMIN SHOP
+// ADMIN PAGES
+// ============================================================
+function AdminHome({ data, setSelectedPark, setAdminParkView, setView, setShowAddPark, showAddPark, newPark, setNewPark, addPark }) {
+  const S = { card: { background: "#fff", borderRadius: 14, padding: 20, marginBottom: 12, border: "2px solid #e8e0cc" } };
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 48, color: "#0d1b4b", letterSpacing: 2, marginBottom: 8 }}>TABLEAU DE BORD</h2>
+      <p style={{ color: "#7a8aaa", marginBottom: 36, fontWeight: 700 }}>Gérez vos parcs, attractions et boutiques</p>
+      <div style={{ display: "grid", gap: 12, marginBottom: 28 }}>
+        {data.parks.map(p => (
+          <div key={p.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", letterSpacing: 1 }}>{p.emoji} {p.name}</h3>
+              <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{p.attractions.length} attractions · {p.shop?.products.length || 0} produits · {p.restaurants?.length || 0} restos</p>
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={() => { setSelectedPark(p.id); setAdminParkView("attractions"); setView("admin-park"); }} className="btn-primary" style={{ fontSize: 12 }}>ATTRACTIONS</button>
+              <button onClick={() => { setSelectedPark(p.id); setAdminParkView("shop"); setView("admin-park"); }} className="btn-secondary" style={{ fontSize: 12 }}>🛍️ BOUTIQUE</button>
+              <button onClick={() => { setSelectedPark(p.id); setAdminParkView("info"); setView("admin-park"); }} className="btn-secondary" style={{ fontSize: 12 }}>ℹ️ INFOS</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={() => setShowAddPark(!showAddPark)} style={{ background: "#fff", border: "2px dashed #e8c547", color: "#0d1b4b", padding: "14px 24px", borderRadius: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 14, fontWeight: 800, width: "100%", marginBottom: 14 }}>
+        + Ajouter un parc
+      </button>
+      {showAddPark && (
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "2px solid #e8e0cc" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <AdminInput label="Nom du parc" value={newPark.name} onChange={v => setNewPark(p => ({ ...p, name: v }))} />
+            <AdminInput label="Emoji" value={newPark.emoji} onChange={v => setNewPark(p => ({ ...p, emoji: v }))} />
+            <AdminInput label="Pays" value={newPark.country} onChange={v => setNewPark(p => ({ ...p, country: v }))} />
+            <AdminInput label="Année de visite" value={newPark.visited} onChange={v => setNewPark(p => ({ ...p, visited: v }))} />
+          </div>
+          <AdminInput label="Conseil global" value={newPark.globalTip} onChange={v => setNewPark(p => ({ ...p, globalTip: v }))} rows={2} />
+          <button onClick={addPark} className="btn-primary">CRÉER LE PARC</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AdminPark({ park, adminParkView, setAdminParkView, data, setData, setView, setSelectedAttraction }) {
+  const [showAddAttr, setShowAddAttr] = useState(false);
+  const [showAddResto, setShowAddResto] = useState(false);
+  const [newAttr, setNewAttr] = useState({ name: "", type: "", thrill: 3, minHeight: "", fastpass: false, singleRider: false, duration: "", waitAvg: "", tip: "", tags: "", status: "open" });
+  const [newResto, setNewResto] = useState({ name: "", type: "", priceRange: "", tip: "" });
+  const [accessForm, setAccessForm] = useState(park.access || { transport: "", parking: "", address: "", hours: "" });
+  const [ticketsForm, setTicketsForm] = useState(park.tickets || { adult: "", child: "", annualPass: "", tips: "" });
+
+  const tabs = [["attractions","🎢 Attractions"],["shop","🛍️ Boutique"],["restaurants","🍽️ Restos"],["info","ℹ️ Infos & Accès"]];
+
+  const addAttraction = () => {
+    if (!newAttr.name) return;
+    const id = newAttr.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") + "-" + Date.now();
+    const attr = { ...newAttr, id, minHeight: newAttr.minHeight ? parseInt(newAttr.minHeight) : null, thrill: parseInt(newAttr.thrill), tags: newAttr.tags.split(",").map(t => t.trim()).filter(Boolean), bio: null, photos: [] };
+    setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: [...p.attractions, attr] } : p) }));
+    setNewAttr({ name: "", type: "", thrill: 3, minHeight: "", fastpass: false, singleRider: false, duration: "", waitAvg: "", tip: "", tags: "", status: "open" });
+    setShowAddAttr(false);
+  };
+
+  const addResto = () => {
+    if (!newResto.name) return;
+    const id = newResto.name.toLowerCase().replace(/\s+/g, "-") + "-" + Date.now();
+    const r = { ...newResto, id, photos: [] };
+    setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, restaurants: [...(p.restaurants || []), r] } : p) }));
+    setNewResto({ name: "", type: "", priceRange: "", tip: "" });
+    setShowAddResto(false);
+  };
+
+  const saveInfo = () => {
+    setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, access: accessForm, tickets: ticketsForm } : p) }));
+    alert("Infos sauvegardées !");
+  };
+
+  return (
+    <div>
+      {/* Tab bar */}
+      <div style={{ background: "#0d1b4b", display: "flex", justifyContent: "center", gap: 4, padding: "0 24px" }}>
+        {tabs.map(([tab, label]) => (
+          <button key={tab} onClick={() => setAdminParkView(tab)} style={{ background: adminParkView === tab ? "#e8c547" : "transparent", color: adminParkView === tab ? "#0d1b4b" : "rgba(255,255,255,0.6)", border: "none", borderBottom: adminParkView === tab ? "none" : "none", padding: "14px 20px", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 800, borderRadius: "10px 10px 0 0" }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
+        <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 28 }}>{park.emoji} {park.name}</h2>
+
+        {/* ATTRACTIONS */}
+        {adminParkView === "attractions" && (
+          <div>
+            <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+              {park.attractions.map(attr => (
+                <div key={attr.id} style={{ background: "#fff", borderRadius: 12, padding: 18, border: "2px solid #e8e0cc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 20, color: "#0d1b4b", letterSpacing: 1, marginBottom: 4 }}>{attr.name}</h3>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {attr.bio && <span style={{ fontSize: 11, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>✓ Bio IA</span>}
+                      {attr.photos.length > 0 && <span style={{ fontSize: 11, color: "#2563eb", background: "#dbeafe", padding: "2px 8px", borderRadius: 10, fontWeight: 700 }}>{attr.photos.length} photo(s)</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => { setSelectedAttraction(attr.id); setView("admin-attraction"); }} className="btn-primary" style={{ fontSize: 12 }}>ÉDITER</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowAddAttr(!showAddAttr)} style={{ background: "#fff", border: "2px dashed #e8c547", color: "#0d1b4b", padding: "12px 24px", borderRadius: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 14, fontWeight: 800, width: "100%", marginBottom: 16 }}>
+              + Ajouter une attraction
+            </button>
+            {showAddAttr && (
+              <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "2px solid #e8e0cc" }}>
+                <AdminInput label="Nom" value={newAttr.name} onChange={v => setNewAttr(p => ({ ...p, name: v }))} />
+                <AdminInput label="Type" value={newAttr.type} placeholder="ex: Montagne russe" onChange={v => setNewAttr(p => ({ ...p, type: v }))} />
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                  <AdminInput label="Durée" value={newAttr.duration} onChange={v => setNewAttr(p => ({ ...p, duration: v }))} />
+                  <AdminInput label="Attente moyenne" value={newAttr.waitAvg} onChange={v => setNewAttr(p => ({ ...p, waitAvg: v }))} />
+                  <AdminInput label="Taille min (cm)" type="number" value={newAttr.minHeight} onChange={v => setNewAttr(p => ({ ...p, minHeight: v }))} />
+                  <div>
+                    <span className="section-label">SENSATIONS ({newAttr.thrill}/5)</span>
+                    <input type="range" min="1" max="5" value={newAttr.thrill} onChange={e => setNewAttr(p => ({ ...p, thrill: e.target.value }))} style={{ width: "100%", accentColor: "#e8c547" }} />
+                  </div>
+                </div>
+                <AdminInput label="Tags (séparés par virgule)" value={newAttr.tags} onChange={v => setNewAttr(p => ({ ...p, tags: v }))} placeholder="ex: Famille, Must-do" />
+                <AdminInput label="Mon conseil" value={newAttr.tip} onChange={v => setNewAttr(p => ({ ...p, tip: v }))} rows={2} />
+                <button onClick={addAttraction} className="btn-primary">AJOUTER L'ATTRACTION</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* BOUTIQUE */}
+        {adminParkView === "shop" && <AdminShop park={park} onUpdate={(shop) => setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, shop } : p) }))} />}
+
+        {/* RESTAURANTS */}
+        {adminParkView === "restaurants" && (
+          <div>
+            <div style={{ display: "grid", gap: 10, marginBottom: 24 }}>
+              {(park.restaurants || []).map(r => (
+                <div key={r.id} style={{ background: "#fff", borderRadius: 12, padding: 18, border: "2px solid #e8e0cc", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 20, color: "#0d1b4b" }}>{r.name}</h3>
+                    <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{r.type} {r.priceRange ? `· ${r.priceRange}` : ""}</p>
+                  </div>
+                  <button onClick={() => setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, restaurants: p.restaurants.filter(x => x.id !== r.id) } : p) }))} style={{ background: "#fee2e2", border: "none", color: "#ef4444", cursor: "pointer", borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, fontFamily: "'Nunito', sans-serif" }}>Supprimer</button>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowAddResto(!showAddResto)} style={{ background: "#fff", border: "2px dashed #e8c547", color: "#0d1b4b", padding: "12px 24px", borderRadius: 12, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 14, fontWeight: 800, width: "100%", marginBottom: 16 }}>
+              + Ajouter un restaurant
+            </button>
+            {showAddResto && (
+              <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "2px solid #e8e0cc" }}>
+                <AdminInput label="Nom du restaurant" value={newResto.name} onChange={v => setNewResto(p => ({ ...p, name: v }))} />
+                <AdminInput label="Type" value={newResto.type} placeholder="ex: Buffet, Table service..." onChange={v => setNewResto(p => ({ ...p, type: v }))} />
+                <AdminInput label="Fourchette de prix" value={newResto.priceRange} placeholder="ex: 15–30€" onChange={v => setNewResto(p => ({ ...p, priceRange: v }))} />
+                <AdminInput label="Mon conseil" value={newResto.tip} onChange={v => setNewResto(p => ({ ...p, tip: v }))} rows={2} />
+                <button onClick={addResto} className="btn-primary">AJOUTER LE RESTAURANT</button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* INFOS & ACCÈS */}
+        {adminParkView === "info" && (
+          <div>
+            <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "2px solid #e8e0cc", marginBottom: 20 }}>
+              <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 24, color: "#0d1b4b", marginBottom: 16 }}>🚆 Accès & Transport</h3>
+              <AdminInput label="Adresse" value={accessForm.address} onChange={v => setAccessForm(f => ({ ...f, address: v }))} placeholder="Adresse du parc" />
+              <AdminInput label="Transports en commun" value={accessForm.transport} onChange={v => setAccessForm(f => ({ ...f, transport: v }))} rows={2} placeholder="RER, Bus, Métro..." />
+              <AdminInput label="Parking" value={accessForm.parking} onChange={v => setAccessForm(f => ({ ...f, parking: v }))} rows={2} placeholder="Infos parking..." />
+              <AdminInput label="Horaires d'ouverture" value={accessForm.hours} onChange={v => setAccessForm(f => ({ ...f, hours: v }))} placeholder="ex: 9h–22h en été" />
+            </div>
+            <div style={{ background: "#fff", borderRadius: 14, padding: 24, border: "2px solid #e8e0cc", marginBottom: 24 }}>
+              <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 24, color: "#0d1b4b", marginBottom: 16 }}>🎟️ Billets & Tarifs</h3>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <AdminInput label="Tarif adulte" value={ticketsForm.adult} onChange={v => setTicketsForm(f => ({ ...f, adult: v }))} placeholder="ex: 59€" />
+                <AdminInput label="Tarif enfant" value={ticketsForm.child} onChange={v => setTicketsForm(f => ({ ...f, child: v }))} placeholder="ex: 49€" />
+                <AdminInput label="Pass annuel" value={ticketsForm.annualPass} onChange={v => setTicketsForm(f => ({ ...f, annualPass: v }))} placeholder="ex: dès 199€/an" />
+              </div>
+              <AdminInput label="Conseils billets" value={ticketsForm.tips} onChange={v => setTicketsForm(f => ({ ...f, tips: v }))} rows={2} placeholder="Acheter en ligne, jours creux..." />
+            </div>
+            <button onClick={saveInfo} className="btn-primary" style={{ padding: "12px 32px" }}>💾 SAUVEGARDER</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function AdminAttractionPage({ attraction, park, setData, onBack }) {
+  if (!attraction || !park) return null;
+  const handleBioGenerated = (bio) => {
+    setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, bio } : a) } : p) }));
+  };
+  const handlePhotoUpload = (files) => {
+    const readers = Array.from(files).map(file => new Promise(res => { const r = new FileReader(); r.onload = e => res({ url: e.target.result, caption: file.name }); r.readAsDataURL(file); }));
+    Promise.all(readers).then(newPhotos => {
+      setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: [...a.photos, ...newPhotos] } : a) } : p) }));
+    });
+  };
+  const updateTip = (val) => {
+    setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, tip: val } : a) } : p) }));
+  };
+
+  return (
+    <div style={{ maxWidth: 900, margin: "0 auto", padding: "40px 24px" }}>
+      <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#7a8aaa", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, marginBottom: 24 }}>← {park.name}</button>
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 42, color: "#0d1b4b", letterSpacing: 2, marginBottom: 28 }}>{attraction.name}</h2>
+
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, marginBottom: 20, border: "2px solid #e8e0cc" }}>
+        <div style={{ fontSize: 11, color: "#7a8aaa", letterSpacing: 3, fontWeight: 800, marginBottom: 16 }}>✨ BIO IA</div>
+        {attraction.bio && <p style={{ color: "#16a34a", fontSize: 13, marginBottom: 12, fontWeight: 700 }}>✓ Bio générée — {attraction.bio.intro?.substring(0, 80)}...</p>}
+        <AIBioGenerator attraction={attraction} parkName={park.name} onBioGenerated={handleBioGenerated} />
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, marginBottom: 20, border: "2px solid #e8e0cc" }}>
+        <div style={{ fontSize: 11, color: "#7a8aaa", letterSpacing: 3, fontWeight: 800, marginBottom: 16 }}>📷 PHOTOS ({attraction.photos.length})</div>
+        {attraction.photos.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8, marginBottom: 16 }}>
+            {attraction.photos.map((photo, i) => (
+              <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "4/3", position: "relative" }}>
+                <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                <button onClick={() => setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: a.photos.filter((_, idx) => idx !== i) } : a) } : p) }))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 12 }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div onClick={() => { const input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.multiple = true; input.onchange = e => handlePhotoUpload(e.target.files); input.click(); }}
+          style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 24, textAlign: "center", cursor: "pointer" }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"}
+          onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}>
+          <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
+          <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>Cliquez pour ajouter des photos</p>
+        </div>
+      </div>
+
+      <div style={{ background: "#fff", borderRadius: 16, padding: 28, border: "2px solid #e8e0cc" }}>
+        <div style={{ fontSize: 11, color: "#7a8aaa", letterSpacing: 3, fontWeight: 800, marginBottom: 16 }}>💡 MON CONSEIL</div>
+        <textarea value={attraction.tip} onChange={e => updateTip(e.target.value)} rows={4} className="input-field" style={{ resize: "vertical" }} />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// ADMIN SHOP (inchangé dans la logique, redesigné)
 // ============================================================
 function AdminShop({ park, onUpdate }) {
-  const [view, setView] = useState("home"); // home | add-product | edit-product | categories
+  const [view, setView] = useState("home");
   const [editProduct, setEditProduct] = useState(null);
   const [newCatName, setNewCatName] = useState("");
   const [newCatEmoji, setNewCatEmoji] = useState("🏷️");
-
   const shop = park.shop || { categories: [], products: [] };
 
-  const EMPTY_PRODUCT = {
-    id: "", name: "", categoryId: shop.categories[0]?.id || "",
-    description: "", price: "", photos: [],
-    sizes: { adulte: [], enfant: [] },
-    availableSizes: [],
-    discountEligible: true, noDiscount: false,
-    boutiques: "", isExclusivity: false,
-    topSale: false, heartPick: false,
-    arrivalDate: "", limitedQty: false, limitedNote: "",
-    tags: [],
-  };
-
+  const EMPTY_PRODUCT = { id: "", name: "", categoryId: shop.categories[0]?.id || "", description: "", price: "", photos: [], sizes: { adulte: [], enfant: [] }, availableSizes: [], discountEligible: true, noDiscount: false, boutiques: "", isExclusivity: false, topSale: false, heartPick: false, arrivalDate: "", limitedQty: false, limitedNote: "", tags: [] };
   const [form, setForm] = useState(EMPTY_PRODUCT);
   const setF = (key, val) => setForm(f => ({ ...f, [key]: val }));
 
@@ -397,260 +1014,118 @@ function AdminShop({ park, onUpdate }) {
   const openEdit = (p) => { setForm({ ...p }); setEditProduct(p.id); setView("add-product"); };
 
   const handlePhotoUpload = (files) => {
-    const readers = Array.from(files).map(file => new Promise(res => {
-      const r = new FileReader();
-      r.onload = e => res({ url: e.target.result, caption: file.name });
-      r.readAsDataURL(file);
-    }));
+    const readers = Array.from(files).map(file => new Promise(res => { const r = new FileReader(); r.onload = e => res({ url: e.target.result, caption: file.name }); r.readAsDataURL(file); }));
     Promise.all(readers).then(newPhotos => setF("photos", [...form.photos, ...newPhotos]));
   };
-
-  const toggleSize = (size) => {
-    setForm(f => ({
-      ...f,
-      availableSizes: f.availableSizes.includes(size) ? f.availableSizes.filter(s => s !== size) : [...f.availableSizes, size],
-    }));
-  };
-
-  const toggleSizeType = (type, size) => {
-    setForm(f => {
-      const current = f.sizes[type];
-      const updated = current.includes(size) ? current.filter(s => s !== size) : [...current, size];
-      return { ...f, sizes: { ...f.sizes, [type]: updated } };
-    });
-  };
-
+  const toggleSize = (size) => setForm(f => ({ ...f, availableSizes: f.availableSizes.includes(size) ? f.availableSizes.filter(s => s !== size) : [...f.availableSizes, size] }));
+  const toggleSizeType = (type, size) => setForm(f => { const current = f.sizes[type]; const updated = current.includes(size) ? current.filter(s => s !== size) : [...current, size]; return { ...f, sizes: { ...f.sizes, [type]: updated } }; });
   const saveProduct = () => {
     if (!form.name) return;
     const id = form.id || form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") + "-" + Date.now();
     const product = { ...form, id, price: parseFloat(form.price) || 0 };
-    const products = editProduct
-      ? shop.products.map(p => p.id === editProduct ? product : p)
-      : [...shop.products, product];
+    const products = editProduct ? shop.products.map(p => p.id === editProduct ? product : p) : [...shop.products, product];
     onUpdate({ ...shop, products });
     setView("home");
   };
+  const deleteProduct = (id) => onUpdate({ ...shop, products: shop.products.filter(p => p.id !== id) });
+  const addCategory = () => { if (!newCatName) return; const id = newCatName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""); onUpdate({ ...shop, categories: [...shop.categories, { id, name: newCatName, emoji: newCatEmoji }] }); setNewCatName(""); setNewCatEmoji("🏷️"); };
 
-  const deleteProduct = (id) => {
-    onUpdate({ ...shop, products: shop.products.filter(p => p.id !== id) });
-  };
+  const CB = (active, color = "#e8c547") => ({ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", background: active ? color + "22" : "#f5f0e8", border: `1px solid ${active ? color : "#e8e0cc"}`, borderRadius: 8, padding: "6px 14px", color: active ? color : "#7a8aaa", fontSize: 13, fontWeight: 700 });
 
-  const addCategory = () => {
-    if (!newCatName) return;
-    const id = newCatName.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    onUpdate({ ...shop, categories: [...shop.categories, { id, name: newCatName, emoji: newCatEmoji }] });
-    setNewCatName(""); setNewCatEmoji("🏷️");
-  };
-
-  const deleteCategory = (id) => {
-    onUpdate({ ...shop, categories: shop.categories.filter(c => c.id !== id) });
-  };
-
-  const S = { // styles réutilisables
-    card: { background: "#111", borderRadius: "12px", padding: "20px", marginBottom: "12px", border: "1px solid #1e1e1e" },
-    btn: (color = "#f5a623") => ({ background: color, color: color === "#f5a623" ? "#000" : "#fff", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", fontSize: "12px", fontFamily: "inherit" }),
-    sectionTitle: { fontFamily: "'Bebas Neue'", fontSize: "22px", color: "#fff", letterSpacing: "1px", marginBottom: "16px" },
-    checkbox: (active, color = "#f5a623") => ({ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", background: active ? color + "22" : "#1a1a1a", border: `1px solid ${active ? color : "#2a2a2a"}`, borderRadius: "6px", padding: "6px 12px", color: active ? color : "#888", fontSize: "13px", transition: "all 0.2s" }),
-  };
-
-  // VUE ADD/EDIT PRODUIT
-  if (view === "add-product") {
-    return (
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-        <button onClick={() => setView("home")} style={{ background: "transparent", border: "none", color: "#888", cursor: "pointer", fontFamily: "inherit", marginBottom: "24px" }}>← Retour</button>
-        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", marginBottom: "32px" }}>
-          {editProduct ? "✏️ MODIFIER LE PRODUIT" : "➕ NOUVEAU PRODUIT"}
-        </h2>
-
-        {/* INFOS DE BASE */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>📦 Informations générales</div>
-          <AdminInput label="Nom du produit *" value={form.name} onChange={v => setF("name", v)} placeholder="ex: Sweat Mickey Classique" />
-          <div style={{ marginBottom: "16px" }}>
-            <label style={{ display: "block", fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "6px" }}>CATÉGORIE</label>
-            <select value={form.categoryId} onChange={e => setF("categoryId", e.target.value)} style={{ width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "10px 14px", color: "#e8e0d0", fontSize: "14px", fontFamily: "inherit" }}>
-              {shop.categories.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}
-            </select>
+  if (view === "add-product") return (
+    <div>
+      <button onClick={() => setView("home")} style={{ background: "transparent", border: "none", color: "#7a8aaa", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontWeight: 700, marginBottom: 24 }}>← Retour</button>
+      <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 40, color: "#0d1b4b", letterSpacing: 2, marginBottom: 28 }}>{editProduct ? "✏️ MODIFIER" : "➕ NOUVEAU PRODUIT"}</h2>
+      {[
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 16, border: "2px solid #e8e0cc" }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📦 Informations générales</h3>
+          <AdminInput label="Nom du produit *" value={form.name} onChange={v => setF("name", v)} />
+          <div style={{ marginBottom: 14 }}><span className="section-label">CATÉGORIE</span><select value={form.categoryId} onChange={e => setF("categoryId", e.target.value)} className="input-field">{shop.categories.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.name}</option>)}</select></div>
+          <AdminInput label="Description" value={form.description} onChange={v => setF("description", v)} rows={3} />
+          <AdminInput label="Prix (€) *" type="number" value={form.price} onChange={v => setF("price", v)} />
+        </div>,
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 16, border: "2px solid #e8e0cc" }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📏 Tailles</h3>
+          <span className="section-label">TAILLES ADULTE PROPOSÉES</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{SIZES_ADULTE.map(s => <span key={s} onClick={() => toggleSizeType("adulte", s)} style={CB(form.sizes.adulte.includes(s))}>{s}</span>)}</div>
+          <span className="section-label">TAILLES ENFANT PROPOSÉES</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>{SIZES_ENFANT.map(s => <span key={s} onClick={() => toggleSizeType("enfant", s)} style={CB(form.sizes.enfant.includes(s))}>{s}</span>)}</div>
+          <span className="section-label">DISPONIBLES EN STOCK</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{[...form.sizes.adulte, ...form.sizes.enfant].map(s => <span key={s} onClick={() => toggleSize(s)} style={CB(form.availableSizes.includes(s), "#16a34a")}>{s} {form.availableSizes.includes(s) ? "✓" : "✗"}</span>)}</div>
+        </div>,
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 16, border: "2px solid #e8e0cc" }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>💰 Remises</h3>
+          <div style={{ display: "flex", gap: 12, marginBottom: 12 }}>
+            <span onClick={() => { setF("discountEligible", true); setF("noDiscount", false); }} style={CB(form.discountEligible && !form.noDiscount, "#16a34a")}>✅ Remises applicables</span>
+            <span onClick={() => { setF("discountEligible", false); setF("noDiscount", true); }} style={CB(form.noDiscount, "#ef4444")}>🚫 Aucune remise</span>
           </div>
-          <AdminInput label="Description" value={form.description} onChange={v => setF("description", v)} rows={3} placeholder="Description courte du produit..." />
-          <AdminInput label="Prix (€) *" type="number" value={form.price} onChange={v => setF("price", v)} placeholder="ex: 59.99" />
+        </div>,
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 16, border: "2px solid #e8e0cc" }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📍 Boutique & Badges</h3>
+          <AdminInput label="Boutiques concernées" value={form.boutiques} onChange={v => setF("boutiques", v)} />
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 14 }}>
+            <span onClick={() => setF("topSale", !form.topSale)} style={CB(form.topSale, "#ef4444")}>🔥 TOP VENTE</span>
+            <span onClick={() => setF("heartPick", !form.heartPick)} style={CB(form.heartPick, "#ec4899")}>💖 COUP DE CŒUR</span>
+            <span onClick={() => setF("isExclusivity", !form.isExclusivity)} style={CB(form.isExclusivity, "#7c3aed")}>⭐ EXCLUSIVITÉ</span>
+            <span onClick={() => setF("limitedQty", !form.limitedQty)} style={CB(form.limitedQty, "#7c3aed")}>⚡ LIMITÉ</span>
+          </div>
+          <AdminInput label="Date d'arrivée" value={form.arrivalDate} onChange={v => setF("arrivalDate", v)} placeholder="ex: 15 Mars" />
+        </div>,
+        <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 20, border: "2px solid #e8e0cc" }}>
+          <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📷 Photos ({form.photos.length})</h3>
+          {form.photos.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>{form.photos.map((p, i) => <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "1", position: "relative" }}><img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /><button onClick={() => setF("photos", form.photos.filter((_, idx) => idx !== i))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 11 }}>×</button></div>)}</div>}
+          <div onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.multiple = true; i.onchange = e => handlePhotoUpload(e.target.files); i.click(); }} style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 20, textAlign: "center", cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"} onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}><div style={{ fontSize: 28, marginBottom: 4 }}>📸</div><p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>Cliquez pour ajouter des photos</p></div>
         </div>
-
-        {/* TAILLES */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>📏 Tailles</div>
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "10px" }}>TAILLES ADULTE PROPOSÉES</div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {SIZES_ADULTE.map(s => (
-                <span key={s} onClick={() => toggleSizeType("adulte", s)} style={S.checkbox(form.sizes.adulte.includes(s))}>{s}</span>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: "16px" }}>
-            <div style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "10px" }}>TAILLES ENFANT PROPOSÉES</div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {SIZES_ENFANT.map(s => (
-                <span key={s} onClick={() => toggleSizeType("enfant", s)} style={S.checkbox(form.sizes.enfant.includes(s))}>{s}</span>
-              ))}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "10px" }}>TAILLES ACTUELLEMENT DISPONIBLES EN STOCK</div>
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-              {[...form.sizes.adulte, ...form.sizes.enfant].map(s => (
-                <span key={s} onClick={() => toggleSize(s)} style={S.checkbox(form.availableSizes.includes(s), "#4a8")}>{s} {form.availableSizes.includes(s) ? "✓" : "✗"}</span>
-              ))}
-            </div>
-            {[...form.sizes.adulte, ...form.sizes.enfant].length === 0 && <p style={{ color: "#555", fontSize: "13px" }}>Sélectionnez d'abord les tailles proposées ci-dessus.</p>}
-          </div>
-        </div>
-
-        {/* REMISES */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>💰 Remises Pass & CM</div>
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "12px" }}>
-            <span onClick={() => { setF("discountEligible", true); setF("noDiscount", false); }} style={S.checkbox(form.discountEligible && !form.noDiscount, "#4a8")}>✅ Remises applicables</span>
-            <span onClick={() => { setF("discountEligible", false); setF("noDiscount", true); }} style={S.checkbox(form.noDiscount, "#ef4444")}>🚫 Aucune remise</span>
-          </div>
-          {form.discountEligible && !form.noDiscount && (
-            <div style={{ background: "#0d0d0d", borderRadius: "8px", padding: "16px" }}>
-              {DISCOUNTS.map(d => (
-                <div key={d.key} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid #1a1a1a" }}>
-                  <span style={{ color: d.color, fontSize: "13px" }}>{d.label} (-{d.pct}%)</span>
-                  <span style={{ color: d.color, fontWeight: "700" }}>{form.price ? discountedPrice(parseFloat(form.price), d.pct) + " €" : "—"}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* BOUTIQUES */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>📍 Disponibilité en boutique</div>
-          <AdminInput label="Boutiques concernées" value={form.boutiques} onChange={v => setF("boutiques", v)} placeholder="ex: World of Disney, Disney Fashion" />
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <span onClick={() => setF("isExclusivity", !form.isExclusivity)} style={S.checkbox(form.isExclusivity, "#7c3aed")}>⭐ Exclusivité boutique</span>
-          </div>
-        </div>
-
-        {/* BADGES */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>🏷️ Badges & Mise en avant</div>
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginBottom: "16px" }}>
-            <span onClick={() => setF("topSale", !form.topSale)} style={S.checkbox(form.topSale, "#ef4444")}>🔥 TOP VENTE</span>
-            <span onClick={() => setF("heartPick", !form.heartPick)} style={S.checkbox(form.heartPick, "#ec4899")}>💖 COUP DE CŒUR</span>
-          </div>
-          <AdminInput label="Date d'arrivée en boutique" value={form.arrivalDate} onChange={v => setF("arrivalDate", v)} placeholder="ex: 09 Mars" />
-          <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-            <span onClick={() => setF("limitedQty", !form.limitedQty)} style={S.checkbox(form.limitedQty, "#7c3aed")}>⚡ Quantité / Vente limitée</span>
-            {form.limitedQty && <div style={{ flex: 1, minWidth: "200px" }}><AdminInput label="Précision" value={form.limitedNote} onChange={v => setF("limitedNote", v)} placeholder="ex: Édition limitée 500 ex." /></div>}
-          </div>
-        </div>
-
-        {/* PHOTOS */}
-        <div style={S.card}>
-          <div style={S.sectionTitle}>📷 Photos ({form.photos.length})</div>
-          {form.photos.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "8px", marginBottom: "16px" }}>
-              {form.photos.map((p, i) => (
-                <div key={i} style={{ position: "relative", borderRadius: "8px", overflow: "hidden", aspectRatio: "1" }}>
-                  <img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <button onClick={() => setF("photos", form.photos.filter((_, idx) => idx !== i))} style={{ position: "absolute", top: "4px", right: "4px", background: "rgba(0,0,0,0.7)", color: "#fff", border: "none", borderRadius: "50%", width: "22px", height: "22px", cursor: "pointer", fontSize: "12px" }}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.multiple = true; i.onchange = e => handlePhotoUpload(e.target.files); i.click(); }}
-            style={{ border: "2px dashed #2a2a2a", borderRadius: "12px", padding: "24px", textAlign: "center", cursor: "pointer" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "#f5a623"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a2a"}>
-            <div style={{ fontSize: "28px", marginBottom: "6px" }}>📸</div>
-            <p style={{ color: "#555", fontSize: "13px" }}>Cliquez pour ajouter des photos</p>
-          </div>
-        </div>
-
-        {/* SAVE */}
-        <div style={{ display: "flex", gap: "12px" }}>
-          <button onClick={saveProduct} style={{ ...S.btn(), padding: "14px 32px", fontSize: "14px" }}>
-            {editProduct ? "💾 ENREGISTRER" : "✅ AJOUTER LE PRODUIT"}
-          </button>
-          <button onClick={() => setView("home")} style={{ ...S.btn("#333"), padding: "14px 24px", fontSize: "14px" }}>Annuler</button>
-        </div>
+      ].map((el, i) => <div key={i}>{el}</div>)}
+      <div style={{ display: "flex", gap: 12 }}>
+        <button onClick={saveProduct} className="btn-primary" style={{ padding: "12px 28px" }}>{editProduct ? "💾 ENREGISTRER" : "✅ AJOUTER"}</button>
+        <button onClick={() => setView("home")} className="btn-secondary" style={{ padding: "12px 20px" }}>Annuler</button>
       </div>
-    );
-  }
+    </div>
+  );
 
-  // VUE CATÉGORIES
-  if (view === "categories") {
-    return (
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-        <button onClick={() => setView("home")} style={{ background: "transparent", border: "none", color: "#888", cursor: "pointer", fontFamily: "inherit", marginBottom: "24px" }}>← Retour</button>
-        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", marginBottom: "32px" }}>🗂️ GÉRER LES CATÉGORIES</h2>
-        <div style={{ display: "grid", gap: "8px", marginBottom: "24px" }}>
-          {shop.categories.map(c => (
-            <div key={c.id} style={{ ...S.card, display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-              <span style={{ color: "#e8e0d0", fontSize: "15px" }}>{c.emoji} {c.name}</span>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <span style={{ color: "#555", fontSize: "12px" }}>{shop.products.filter(p => p.categoryId === c.id).length} produit(s)</span>
-                <button onClick={() => deleteCategory(c.id)} style={{ background: "#2a1a1a", border: "none", color: "#ef4444", cursor: "pointer", borderRadius: "4px", padding: "4px 10px", fontSize: "12px", fontFamily: "inherit" }}>Supprimer</button>
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={S.card}>
-          <div style={S.sectionTitle}>Nouvelle catégorie</div>
-          <div style={{ display: "grid", gridTemplateColumns: "80px 1fr", gap: "12px" }}>
-            <AdminInput label="Emoji" value={newCatEmoji} onChange={setNewCatEmoji} />
-            <AdminInput label="Nom" value={newCatName} onChange={setNewCatName} placeholder="ex: Soldes en cours" />
-          </div>
-          <button onClick={addCategory} style={S.btn()}>+ AJOUTER</button>
-        </div>
-      </div>
-    );
-  }
-
-  // VUE HOME ADMIN SHOP
   return (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-      <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", marginBottom: "8px" }}>🛍️ BOUTIQUE — {park.name}</h2>
-      <p style={{ color: "#555", marginBottom: "32px" }}>{shop.products.length} produit(s) · {shop.categories.length} catégorie(s)</p>
-
-      <div style={{ display: "flex", gap: "12px", marginBottom: "32px" }}>
-        <button onClick={openAdd} style={{ ...S.btn(), padding: "12px 24px" }}>+ NOUVEAU PRODUIT</button>
-        <button onClick={() => setView("categories")} style={{ ...S.btn("#1a1a1a"), border: "1px solid #2a2a2a", padding: "12px 24px" }}>🗂️ CATÉGORIES</button>
+    <div>
+      <div style={{ display: "flex", gap: 12, marginBottom: 24 }}>
+        <button onClick={openAdd} className="btn-primary">+ NOUVEAU PRODUIT</button>
+        <button onClick={() => setView("categories")} className="btn-secondary">🗂️ CATÉGORIES</button>
       </div>
-
-      {shop.products.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "60px", border: "1px dashed #2a2a2a", borderRadius: "12px", color: "#555" }}>
-          <div style={{ fontSize: "48px", marginBottom: "12px" }}>🛍️</div>
-          <p>Aucun produit pour l'instant</p>
-          <button onClick={openAdd} style={{ ...S.btn(), marginTop: "16px", padding: "10px 20px" }}>+ Ajouter le premier produit</button>
-        </div>
-      ) : (
-        <div style={{ display: "grid", gap: "12px" }}>
-          {shop.products.map(p => (
-            <div key={p.id} style={{ ...S.card, display: "grid", gridTemplateColumns: "60px 1fr auto", gap: "16px", alignItems: "center" }}>
-              <div style={{ width: "60px", height: "60px", borderRadius: "8px", overflow: "hidden", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                {p.photos.length > 0 ? <img src={p.photos[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: "24px", opacity: 0.3 }}>🛍️</span>}
+      {shop.products.length === 0
+        ? <div style={{ textAlign: "center", padding: 60, border: "2px dashed #e8e0cc", borderRadius: 14, color: "#7a8aaa" }}><div style={{ fontSize: 48, marginBottom: 12 }}>🛍️</div><p style={{ fontWeight: 700 }}>Aucun produit</p><button onClick={openAdd} className="btn-primary" style={{ marginTop: 16 }}>+ Ajouter</button></div>
+        : <div style={{ display: "grid", gap: 10 }}>{shop.products.map(p => (
+            <div key={p.id} style={{ background: "#fff", borderRadius: 12, padding: 18, border: "2px solid #e8e0cc", display: "grid", gridTemplateColumns: "60px 1fr auto", gap: 16, alignItems: "center" }}>
+              <div style={{ width: 60, height: 60, borderRadius: 8, overflow: "hidden", background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {p.photos.length > 0 ? <img src={p.photos[0].url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 24, opacity: 0.3 }}>🛍️</span>}
               </div>
               <div>
-                <div style={{ display: "flex", alignItems: "center", gap: "8px", marginBottom: "4px" }}>
-                  <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "18px", color: "#fff", letterSpacing: "1px" }}>{p.name}</h3>
-                  {p.topSale && <span style={{ fontSize: "10px", background: "#ef444422", color: "#ef4444", padding: "1px 6px", borderRadius: "3px" }}>🔥</span>}
-                  {p.heartPick && <span style={{ fontSize: "10px", background: "#ec489922", color: "#ec4899", padding: "1px 6px", borderRadius: "3px" }}>💖</span>}
-                  {p.limitedQty && <span style={{ fontSize: "10px", background: "#7c3aed22", color: "#7c3aed", padding: "1px 6px", borderRadius: "3px" }}>⚡</span>}
-                </div>
-                <p style={{ color: "#555", fontSize: "12px" }}>{shop.categories.find(c => c.id === p.categoryId)?.name || "—"} · {p.price.toFixed(2)} € · {p.photos.length} photo(s)</p>
+                <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 18, color: "#0d1b4b" }}>{p.name}</h3>
+                <p style={{ color: "#7a8aaa", fontSize: 12, fontWeight: 700 }}>{shop.categories.find(c => c.id === p.categoryId)?.name || "—"} · {p.price.toFixed(2)} €</p>
               </div>
-              <div style={{ display: "flex", gap: "8px" }}>
-                <button onClick={() => openEdit(p)} style={S.btn()}>ÉDITER</button>
-                <button onClick={() => deleteProduct(p.id)} style={{ ...S.btn("#2a1a1a"), color: "#ef4444" }}>✕</button>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={() => openEdit(p)} className="btn-primary" style={{ fontSize: 12 }}>ÉDITER</button>
+                <button onClick={() => deleteProduct(p.id)} style={{ background: "#fee2e2", border: "none", color: "#ef4444", cursor: "pointer", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 700, fontFamily: "'Nunito', sans-serif" }}>✕</button>
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          ))}</div>
+      }
+    </div>
+  );
+}
+
+// ============================================================
+// LOGIN ADMIN
+// ============================================================
+function AdminLogin({ setMode, setAdminUnlocked }) {
+  const [pw, setPw] = useState("");
+  return (
+    <div style={{ minHeight: "100vh", background: "#f5f0e8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 20, padding: 40, border: "2px solid #e8e0cc", width: 360, boxShadow: "0 8px 32px rgba(13,27,75,0.1)" }}>
+        <div style={{ fontFamily: "'Bangers', cursive", fontSize: 32, color: "#0d1b4b", marginBottom: 4, letterSpacing: 2 }}>ACCÈS ADMIN</div>
+        <p style={{ color: "#7a8aaa", fontSize: 13, marginBottom: 24, fontWeight: 700 }}>Mot de passe : <span style={{ color: "#0d1b4b" }}>admin</span></p>
+        <input type="password" value={pw} onChange={e => setPw(e.target.value)} onKeyDown={e => e.key === "Enter" && pw === "admin" && setAdminUnlocked(true)} placeholder="Mot de passe..." className="input-field" style={{ marginBottom: 14 }} />
+        <button onClick={() => pw === "admin" && setAdminUnlocked(true)} className="btn-primary" style={{ width: "100%", padding: 12 }}>ENTRER</button>
+        <button onClick={() => setMode("visitor")} style={{ width: "100%", background: "transparent", border: "none", color: "#7a8aaa", cursor: "pointer", marginTop: 12, fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700 }}>← Retour au blog</button>
+      </div>
     </div>
   );
 }
@@ -664,357 +1139,30 @@ export default function ParkBlog() {
   const [view, setView] = useState("home");
   const [selectedPark, setSelectedPark] = useState(null);
   const [selectedAttraction, setSelectedAttraction] = useState(null);
-  const [parkTab, setParkTab] = useState("attractions"); // attractions | shop
+  const [parkTab, setParkTab] = useState("attractions");
   const [adminPassword, setAdminPassword] = useState("");
   const [adminUnlocked, setAdminUnlocked] = useState(false);
   const [showAddPark, setShowAddPark] = useState(false);
-  const [showAddAttraction, setShowAddAttraction] = useState(false);
   const [newPark, setNewPark] = useState({ name: "", country: "", emoji: "🎢", visited: new Date().getFullYear().toString(), globalTip: "" });
-  const [newAttraction, setNewAttraction] = useState({ name: "", type: "", thrill: 3, minHeight: "", fastpass: false, singleRider: false, duration: "", waitAvg: "", tip: "", tags: "" });
-  const [adminParkView, setAdminParkView] = useState("attractions"); // attractions | shop
+  const [adminParkView, setAdminParkView] = useState("attractions");
 
-  const getPark = (id) => data.parks.find(p => p.id === id);
-  const getAttraction = (parkId, attrId) => getPark(parkId)?.attractions.find(a => a.id === attrId);
-
-  const park = selectedPark ? getPark(selectedPark) : null;
-  const attraction = selectedPark && selectedAttraction ? getAttraction(selectedPark, selectedAttraction) : null;
-
-  const updateParkShop = useCallback((parkId, shop) => {
-    setData(d => ({ ...d, parks: d.parks.map(p => p.id === parkId ? { ...p, shop } : p) }));
-  }, []);
-
-  const handleBioGenerated = (parkId, attrId, bio) => {
-    setData(d => ({ ...d, parks: d.parks.map(p => p.id === parkId ? { ...p, attractions: p.attractions.map(a => a.id === attrId ? { ...a, bio } : a) } : p) }));
-  };
-
-  const handlePhotoUpload = (parkId, attrId, files) => {
-    const readers = Array.from(files).map(file => new Promise(res => { const r = new FileReader(); r.onload = e => res({ url: e.target.result, caption: file.name }); r.readAsDataURL(file); }));
-    Promise.all(readers).then(newPhotos => {
-      setData(d => ({ ...d, parks: d.parks.map(p => p.id === parkId ? { ...p, attractions: p.attractions.map(a => a.id === attrId ? { ...a, photos: [...a.photos, ...newPhotos] } : a) } : p) }));
-    });
-  };
+  const park = selectedPark ? data.parks.find(p => p.id === selectedPark) : null;
+  const attraction = park && selectedAttraction ? park.attractions.find(a => a.id === selectedAttraction) : null;
 
   const addPark = () => {
     if (!newPark.name) return;
     const id = newPark.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    setData(d => ({ ...d, parks: [...d.parks, { ...newPark, id, coverColor: "#1a1a2e", accentColor: "#e8c547", heroImage: null, attractions: [], shop: { categories: [], products: [] } }] }));
+    setData(d => ({ ...d, parks: [...d.parks, { ...newPark, id, coverColor: "#1a1a6e", accentColor: "#e8c547", heroImage: null, attractions: [], restaurants: [], access: { transport: "", parking: "", address: "", hours: "" }, tickets: { adult: "", child: "", annualPass: "", tips: "" }, shop: { categories: [], products: [] } }] }));
     setNewPark({ name: "", country: "", emoji: "🎢", visited: new Date().getFullYear().toString(), globalTip: "" });
     setShowAddPark(false);
   };
 
-  const addAttraction = (parkId) => {
-    if (!newAttraction.name) return;
-    const id = newAttraction.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    const attr = { ...newAttraction, id, minHeight: newAttraction.minHeight ? parseInt(newAttraction.minHeight) : null, thrill: parseInt(newAttraction.thrill), tags: newAttraction.tags.split(",").map(t => t.trim()).filter(Boolean), bio: null, photos: [] };
-    setData(d => ({ ...d, parks: d.parks.map(p => p.id === parkId ? { ...p, attractions: [...p.attractions, attr] } : p) }));
-    setNewAttraction({ name: "", type: "", thrill: 3, minHeight: "", fastpass: false, singleRider: false, duration: "", waitAvg: "", tip: "", tags: "" });
-    setShowAddAttraction(false);
-  };
-
-  const CSS = `
-    @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap');
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { background: #0d0d0d; color: #e8e0d0; font-family: 'DM Sans', sans-serif; }
-    ::-webkit-scrollbar { width: 6px; } ::-webkit-scrollbar-track { background: #111; } ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-  `;
-
-  // ---- VIEWS ----
-  const renderHome = () => (
-    <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-      <div style={{ height: "80vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", background: "radial-gradient(ellipse at 50% 0%, #1a1040 0%, #0d0d0d 70%)", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", inset: 0, backgroundImage: "radial-gradient(circle at 20% 50%, rgba(248,165,36,0.05) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(120,80,200,0.08) 0%, transparent 40%)" }} />
-        <div style={{ position: "relative", textAlign: "center", padding: "0 24px" }}>
-          <div style={{ fontSize: "13px", letterSpacing: "6px", color: "#f5a623", marginBottom: "24px", textTransform: "uppercase" }}>Journal de voyage</div>
-          <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "clamp(60px, 12vw, 120px)", lineHeight: 0.9, color: "#fff", letterSpacing: "2px" }}>PARCS &<br /><span style={{ color: "#f5a623" }}>SENSATIONS</span></h1>
-          <p style={{ marginTop: "32px", color: "#888", fontSize: "16px", maxWidth: "480px", lineHeight: 1.7, fontWeight: 300 }}>Mon carnet de bord personnel — attractions, conseils et boutiques des parcs que j'ai visités.</p>
-        </div>
-      </div>
-      <div style={{ maxWidth: "1200px", margin: "0 auto", padding: "80px 24px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "48px" }}>
-          <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px" }}>PARCS VISITÉS</h2>
-          <span style={{ color: "#555", fontSize: "13px" }}>{data.parks.length} parc(s)</span>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: "24px" }}>
-          {data.parks.map(p => (
-            <div key={p.id} onClick={() => { setSelectedPark(p.id); setParkTab("attractions"); setView("park"); }} style={{ background: "#111", borderRadius: "16px", overflow: "hidden", cursor: "pointer", border: "1px solid #1e1e1e", transition: "all 0.3s" }}
-              onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-6px)"; e.currentTarget.style.borderColor = "#f5a623"; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = "translateY(0)"; e.currentTarget.style.borderColor = "#1e1e1e"; }}>
-              <div style={{ height: "180px", background: `linear-gradient(135deg, ${p.coverColor}, ${p.coverColor}99)`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "72px", position: "relative" }}>
-                {p.emoji}
-                <div style={{ position: "absolute", bottom: "12px", right: "16px", fontSize: "11px", color: "rgba(255,255,255,0.4)", letterSpacing: "2px" }}>{p.visited}</div>
-              </div>
-              <div style={{ padding: "24px" }}>
-                <div style={{ fontSize: "11px", color: "#f5a623", letterSpacing: "3px", textTransform: "uppercase", marginBottom: "8px" }}>{p.country}</div>
-                <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "28px", color: "#fff", letterSpacing: "1px" }}>{p.name}</h3>
-                <div style={{ display: "flex", gap: "16px", marginTop: "8px" }}>
-                  <span style={{ color: "#666", fontSize: "13px" }}>{p.attractions.length} attraction(s)</span>
-                  <span style={{ color: "#666", fontSize: "13px" }}>🛍️ {p.shop?.products.length || 0} produit(s)</span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderPark = () => {
-    if (!park) return null;
-    return (
-      <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-        <div style={{ height: "340px", background: `linear-gradient(135deg, ${park.coverColor} 0%, #0d0d0d 100%)`, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", position: "relative" }}>
-          <div style={{ fontSize: "70px", marginBottom: "12px" }}>{park.emoji}</div>
-          <div style={{ fontSize: "11px", color: park.accentColor, letterSpacing: "5px", textTransform: "uppercase" }}>{park.country} · {park.visited}</div>
-          <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "56px", color: "#fff", letterSpacing: "3px", marginTop: "8px" }}>{park.name}</h1>
-        </div>
-        {/* ONGLETS */}
-        <div style={{ background: "#111", borderBottom: "1px solid #1a1a1a", display: "flex", justifyContent: "center", gap: "4px", padding: "0 24px" }}>
-          {[["attractions", "🎢 Attractions"], ["shop", "🛍️ Boutique"]].map(([tab, label]) => (
-            <button key={tab} onClick={() => setParkTab(tab)} style={{ background: "transparent", border: "none", borderBottom: parkTab === tab ? "3px solid #f5a623" : "3px solid transparent", color: parkTab === tab ? "#f5a623" : "#666", padding: "16px 24px", cursor: "pointer", fontFamily: "inherit", fontSize: "14px", fontWeight: parkTab === tab ? "600" : "400", transition: "all 0.2s" }}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {parkTab === "attractions" && (
-          <div style={{ maxWidth: "1000px", margin: "0 auto", padding: "60px 24px" }}>
-            {park.globalTip && (
-              <div style={{ background: "#111", border: "1px solid #f5a623", borderRadius: "12px", padding: "24px", marginBottom: "48px" }}>
-                <div style={{ fontSize: "11px", color: "#f5a623", letterSpacing: "3px", marginBottom: "8px" }}>💡 MON CONSEIL GLOBAL</div>
-                <p style={{ color: "#e0d8cc", lineHeight: 1.7 }}>{park.globalTip}</p>
-              </div>
-            )}
-            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "36px", color: "#fff", marginBottom: "32px", letterSpacing: "2px" }}>ATTRACTIONS ({park.attractions.length})</h2>
-            <div style={{ display: "grid", gap: "16px" }}>
-              {park.attractions.map(attr => (
-                <div key={attr.id} onClick={() => { setSelectedAttraction(attr.id); setView("attraction"); }} style={{ background: "#111", borderRadius: "12px", padding: "24px", cursor: "pointer", border: "1px solid #1e1e1e", transition: "all 0.2s", display: "grid", gridTemplateColumns: "1fr auto", gap: "16px", alignItems: "center" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#f5a623"; e.currentTarget.style.background = "#141414"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#1e1e1e"; e.currentTarget.style.background = "#111"; }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "12px", marginBottom: "8px" }}>
-                      <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "22px", color: "#fff", letterSpacing: "1px" }}>{attr.name}</h3>
-                      {attr.fastpass && <span style={{ background: "#f5a623", color: "#000", fontSize: "10px", padding: "2px 8px", borderRadius: "3px", fontWeight: "700" }}>FASTPASS</span>}
-                    </div>
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      {attr.tags.slice(0, 3).map(t => <span key={t} style={{ fontSize: "11px", color: "#666", border: "1px solid #2a2a2a", padding: "2px 10px", borderRadius: "20px" }}>{t}</span>)}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <ThrillStars level={attr.thrill} />
-                    <div style={{ color: "#555", fontSize: "12px", marginTop: "4px" }}>{attr.waitAvg || "—"}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        {parkTab === "shop" && <ShopPage park={park} />}
-      </div>
-    );
-  };
-
-  const renderAttraction = () => {
-    if (!attraction || !park) return null;
-    return (
-      <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-        <div style={{ background: `linear-gradient(135deg, ${park.coverColor}99 0%, #0d0d0d 100%)`, padding: "80px 24px 60px", borderBottom: "1px solid #1a1a1a" }}>
-          <div style={{ maxWidth: "900px", margin: "0 auto" }}>
-            <button onClick={() => setView("park")} style={{ background: "transparent", border: "none", color: "#888", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", marginBottom: "20px" }}>← {park.name}</button>
-            <div style={{ fontSize: "11px", color: "#f5a623", letterSpacing: "3px", marginBottom: "12px" }}>{attraction.type}</div>
-            <h1 style={{ fontFamily: "'Bebas Neue'", fontSize: "clamp(48px, 8vw, 80px)", color: "#fff", letterSpacing: "2px", lineHeight: 0.95 }}>{attraction.name}</h1>
-            <div style={{ display: "flex", gap: "32px", marginTop: "24px", flexWrap: "wrap" }}>
-              <div><div style={{ fontSize: "10px", color: "#555", letterSpacing: "2px", marginBottom: "4px" }}>SENSATIONS</div><ThrillStars level={attraction.thrill} /></div>
-              {attraction.minHeight && <div><div style={{ fontSize: "10px", color: "#555", letterSpacing: "2px", marginBottom: "4px" }}>TAILLE MIN.</div><span style={{ color: "#e8c547", fontWeight: "600" }}>{attraction.minHeight} cm</span></div>}
-              <div><div style={{ fontSize: "10px", color: "#555", letterSpacing: "2px", marginBottom: "4px" }}>DURÉE</div><span style={{ color: "#e0d8cc" }}>{attraction.duration || "—"}</span></div>
-              <div><div style={{ fontSize: "10px", color: "#555", letterSpacing: "2px", marginBottom: "4px" }}>ATTENTE MOY.</div><span style={{ color: "#e0d8cc" }}>{attraction.waitAvg || "—"}</span></div>
-            </div>
-            <div style={{ display: "flex", gap: "12px", marginTop: "20px", flexWrap: "wrap" }}>
-              {attraction.fastpass && <span style={{ background: "#f5a623", color: "#000", fontSize: "11px", padding: "5px 14px", borderRadius: "4px", fontWeight: "700" }}>⚡ FASTPASS DISPONIBLE</span>}
-              {attraction.singleRider && <span style={{ background: "#2a2a2a", color: "#aaa", fontSize: "11px", padding: "5px 14px", borderRadius: "4px" }}>👤 SINGLE RIDER</span>}
-              {!attraction.minHeight && <span style={{ background: "#1a2a1a", color: "#6ab06a", fontSize: "11px", padding: "5px 14px", borderRadius: "4px" }}>👨‍👩‍👧 TOUT PUBLIC</span>}
-            </div>
-          </div>
-        </div>
-        <div style={{ maxWidth: "900px", margin: "0 auto", padding: "48px 24px" }}>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "40px" }}>
-            {attraction.tags.map(t => <span key={t} style={{ fontSize: "12px", color: "#888", border: "1px solid #2a2a2a", padding: "4px 14px", borderRadius: "20px" }}>{t}</span>)}
-          </div>
-          {attraction.bio ? (
-            <div style={{ background: "#111", borderRadius: "16px", padding: "32px", marginBottom: "40px", border: "1px solid #1e1e1e" }}>
-              <div style={{ fontSize: "11px", color: "#f5a623", letterSpacing: "3px", marginBottom: "20px" }}>✨ PRÉSENTATION</div>
-              <p style={{ color: "#e0d8cc", fontSize: "17px", lineHeight: 1.8, marginBottom: "20px", fontStyle: "italic" }}>{attraction.bio.intro}</p>
-              <p style={{ color: "#aaa", lineHeight: 1.7, marginBottom: "16px" }}>{attraction.bio.experience}</p>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px", marginTop: "24px" }}>
-                <div style={{ background: "#0d0d0d", borderRadius: "8px", padding: "16px" }}>
-                  <div style={{ fontSize: "10px", color: "#555", letterSpacing: "2px", marginBottom: "8px" }}>IDÉAL POUR</div>
-                  <p style={{ color: "#aaa", fontSize: "14px", lineHeight: 1.6 }}>{attraction.bio.bestFor}</p>
-                </div>
-                <div style={{ background: "#0d0d0d", borderRadius: "8px", padding: "16px" }}>
-                  <div style={{ fontSize: "10px", color: "#f5a623", letterSpacing: "2px", marginBottom: "8px" }}>LE SAVIEZ-VOUS ?</div>
-                  <p style={{ color: "#aaa", fontSize: "14px", lineHeight: 1.6 }}>{attraction.bio.funFact}</p>
-                </div>
-              </div>
-            </div>
-          ) : <div style={{ background: "#0d0d0d", border: "1px dashed #2a2a2a", borderRadius: "12px", padding: "32px", textAlign: "center", marginBottom: "40px" }}><p style={{ color: "#444" }}>Bio non encore générée</p></div>}
-          {attraction.tip && (
-            <div style={{ borderLeft: "3px solid #f5a623", paddingLeft: "24px", marginBottom: "40px" }}>
-              <div style={{ fontSize: "10px", color: "#f5a623", letterSpacing: "3px", marginBottom: "8px" }}>💡 MON CONSEIL</div>
-              <p style={{ color: "#e0d8cc", lineHeight: 1.7, fontSize: "15px" }}>{attraction.tip}</p>
-            </div>
-          )}
-          {attraction.photos.length > 0 && (
-            <div>
-              <div style={{ fontSize: "11px", color: "#555", letterSpacing: "3px", marginBottom: "16px" }}>📷 PHOTOS</div>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.min(attraction.photos.length, 3)}, 1fr)`, gap: "8px" }}>
-                {attraction.photos.map((photo, i) => <div key={i} style={{ borderRadius: "8px", overflow: "hidden", aspectRatio: "16/9" }}><img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /></div>)}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderAdminHome = () => (
-    <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-      <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "48px", color: "#fff", letterSpacing: "2px", marginBottom: "8px" }}>TABLEAU DE BORD</h2>
-      <p style={{ color: "#555", marginBottom: "40px" }}>Gérez vos parcs, attractions et boutiques</p>
-      <div style={{ display: "grid", gap: "12px", marginBottom: "32px" }}>
-        {data.parks.map(p => (
-          <div key={p.id} style={{ background: "#111", borderRadius: "12px", padding: "20px", border: "1px solid #1e1e1e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <div>
-              <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "22px", color: "#fff", letterSpacing: "1px" }}>{p.emoji} {p.name}</h3>
-              <p style={{ color: "#555", fontSize: "13px" }}>{p.attractions.length} attractions · {p.shop?.products.length || 0} produits boutique</p>
-            </div>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button onClick={() => { setSelectedPark(p.id); setAdminParkView("attractions"); setView("admin-park"); }} style={{ background: "#f5a623", color: "#000", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", fontSize: "12px", fontFamily: "inherit" }}>ATTRACTIONS</button>
-              <button onClick={() => { setSelectedPark(p.id); setAdminParkView("shop"); setView("admin-park"); }} style={{ background: "#1a1a1a", color: "#f5a623", border: "1px solid #f5a623", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", fontSize: "12px", fontFamily: "inherit" }}>🛍️ BOUTIQUE</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button onClick={() => setShowAddPark(!showAddPark)} style={{ background: "#1a1a1a", border: "1px dashed #f5a623", color: "#f5a623", padding: "14px 24px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "14px", width: "100%", marginBottom: "16px" }}>+ Ajouter un parc</button>
-      {showAddPark && (
-        <div style={{ background: "#111", borderRadius: "12px", padding: "24px", border: "1px solid #2a2a2a" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-            <AdminInput label="Nom du parc" value={newPark.name} onChange={v => setNewPark(p => ({ ...p, name: v }))} />
-            <AdminInput label="Emoji" value={newPark.emoji} onChange={v => setNewPark(p => ({ ...p, emoji: v }))} />
-            <AdminInput label="Pays" value={newPark.country} onChange={v => setNewPark(p => ({ ...p, country: v }))} />
-            <AdminInput label="Année de visite" value={newPark.visited} onChange={v => setNewPark(p => ({ ...p, visited: v }))} />
-          </div>
-          <AdminInput label="Conseil global" value={newPark.globalTip} onChange={v => setNewPark(p => ({ ...p, globalTip: v }))} rows={2} />
-          <button onClick={addPark} style={{ background: "#f5a623", color: "#000", border: "none", padding: "12px 24px", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontFamily: "inherit", fontSize: "14px" }}>CRÉER LE PARC</button>
-        </div>
-      )}
-    </div>
-  );
-
-  const renderAdminPark = () => {
-    if (!park) return null;
-    return (
-      <div>
-        <div style={{ background: "#111", borderBottom: "1px solid #1a1a1a", display: "flex", justifyContent: "center", gap: "4px", padding: "0 24px" }}>
-          {[["attractions", "🎢 Attractions"], ["shop", "🛍️ Boutique"]].map(([tab, label]) => (
-            <button key={tab} onClick={() => setAdminParkView(tab)} style={{ background: "transparent", border: "none", borderBottom: adminParkView === tab ? "3px solid #f5a623" : "3px solid transparent", color: adminParkView === tab ? "#f5a623" : "#666", padding: "16px 24px", cursor: "pointer", fontFamily: "inherit", fontSize: "14px", fontWeight: adminParkView === tab ? "600" : "400" }}>
-              {label}
-            </button>
-          ))}
-        </div>
-        {adminParkView === "attractions" && (
-          <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", marginBottom: "32px" }}>{park.emoji} {park.name} — Attractions</h2>
-            <div style={{ marginBottom: "32px" }}>
-              {park.attractions.map(attr => (
-                <div key={attr.id} style={{ background: "#111", borderRadius: "12px", padding: "20px", marginBottom: "12px", border: "1px solid #1e1e1e", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <h3 style={{ fontFamily: "'Bebas Neue'", fontSize: "20px", color: "#fff", letterSpacing: "1px", marginBottom: "6px" }}>{attr.name}</h3>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      {attr.bio && <span style={{ fontSize: "11px", color: "#4a8", background: "#1a2a1a", padding: "2px 8px", borderRadius: "4px" }}>✓ Bio</span>}
-                      {attr.photos.length > 0 && <span style={{ fontSize: "11px", color: "#48a", background: "#1a1a2a", padding: "2px 8px", borderRadius: "4px" }}>{attr.photos.length} photo(s)</span>}
-                    </div>
-                  </div>
-                  <button onClick={() => { setSelectedAttraction(attr.id); setView("admin-attraction"); }} style={{ background: "#f5a623", color: "#000", border: "none", padding: "8px 16px", borderRadius: "6px", cursor: "pointer", fontWeight: "700", fontSize: "12px", fontFamily: "inherit" }}>ÉDITER</button>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setShowAddAttraction(!showAddAttraction)} style={{ background: "#1a1a1a", border: "1px dashed #f5a623", color: "#f5a623", padding: "14px 24px", borderRadius: "8px", cursor: "pointer", fontFamily: "inherit", fontSize: "14px", width: "100%" }}>+ Ajouter une attraction</button>
-            {showAddAttraction && (
-              <div style={{ background: "#111", borderRadius: "12px", padding: "24px", marginTop: "16px", border: "1px solid #2a2a2a" }}>
-                <AdminInput label="Nom" value={newAttraction.name} onChange={v => setNewAttraction(p => ({ ...p, name: v }))} />
-                <AdminInput label="Type" value={newAttraction.type} placeholder="ex: Montagne russe" onChange={v => setNewAttraction(p => ({ ...p, type: v }))} />
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "16px" }}>
-                  <AdminInput label="Durée" value={newAttraction.duration} onChange={v => setNewAttraction(p => ({ ...p, duration: v }))} />
-                  <AdminInput label="Attente moyenne" value={newAttraction.waitAvg} onChange={v => setNewAttraction(p => ({ ...p, waitAvg: v }))} />
-                  <AdminInput label="Taille min (cm)" type="number" value={newAttraction.minHeight} onChange={v => setNewAttraction(p => ({ ...p, minHeight: v }))} />
-                  <div>
-                    <label style={{ display: "block", fontSize: "11px", color: "#888", letterSpacing: "2px", marginBottom: "6px" }}>SENSATIONS (1-5)</label>
-                    <input type="range" min="1" max="5" value={newAttraction.thrill} onChange={e => setNewAttraction(p => ({ ...p, thrill: e.target.value }))} style={{ width: "100%" }} />
-                    <span style={{ color: "#f5a623" }}>{newAttraction.thrill}/5</span>
-                  </div>
-                </div>
-                <AdminInput label="Tags (séparés par virgule)" value={newAttraction.tags} onChange={v => setNewAttraction(p => ({ ...p, tags: v }))} />
-                <AdminInput label="Mon conseil" value={newAttraction.tip} onChange={v => setNewAttraction(p => ({ ...p, tip: v }))} rows={2} />
-                <button onClick={() => addAttraction(park.id)} style={{ background: "#f5a623", color: "#000", border: "none", padding: "12px 24px", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontFamily: "inherit", fontSize: "14px" }}>AJOUTER L'ATTRACTION</button>
-              </div>
-            )}
-          </div>
-        )}
-        {adminParkView === "shop" && <AdminShop park={park} onUpdate={(shop) => updateParkShop(park.id, shop)} />}
-      </div>
-    );
-  };
-
-  const renderAdminAttraction = () => {
-    if (!attraction || !park) return null;
-    return (
-      <div style={{ maxWidth: "900px", margin: "0 auto", padding: "40px 24px" }}>
-        <button onClick={() => setView("admin-park")} style={{ background: "transparent", border: "none", color: "#888", cursor: "pointer", fontFamily: "inherit", marginBottom: "24px" }}>← {park.name}</button>
-        <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "42px", color: "#fff", letterSpacing: "2px", marginBottom: "32px" }}>{attraction.name}</h2>
-        <div style={{ background: "#111", borderRadius: "16px", padding: "28px", marginBottom: "24px", border: "1px solid #1e1e1e" }}>
-          <div style={{ fontSize: "11px", color: "#888", letterSpacing: "3px", marginBottom: "16px" }}>✨ BIO IA</div>
-          {attraction.bio && <p style={{ color: "#6ab06a", fontSize: "13px", marginBottom: "12px" }}>✓ Bio générée — {attraction.bio.intro?.substring(0, 80)}...</p>}
-          <AIBioGenerator attraction={attraction} parkName={park.name} onBioGenerated={(bio) => handleBioGenerated(park.id, attraction.id, bio)} />
-        </div>
-        <div style={{ background: "#111", borderRadius: "16px", padding: "28px", marginBottom: "24px", border: "1px solid #1e1e1e" }}>
-          <div style={{ fontSize: "11px", color: "#888", letterSpacing: "3px", marginBottom: "16px" }}>📷 PHOTOS ({attraction.photos.length})</div>
-          {attraction.photos.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: "8px", marginBottom: "16px" }}>
-              {attraction.photos.map((photo, i) => (
-                <div key={i} style={{ borderRadius: "8px", overflow: "hidden", aspectRatio: "4/3", position: "relative" }}>
-                  <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  <button onClick={() => setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: a.photos.filter((_, idx) => idx !== i) } : a) } : p) }))} style={{ position: "absolute", top: "4px", right: "4px", background: "rgba(0,0,0,0.7)", color: "#fff", border: "none", borderRadius: "50%", width: "22px", height: "22px", cursor: "pointer", fontSize: "12px" }}>×</button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div onClick={() => { const input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.multiple = true; input.onchange = e => handlePhotoUpload(park.id, attraction.id, e.target.files); input.click(); }} style={{ border: "2px dashed #2a2a2a", borderRadius: "12px", padding: "24px", textAlign: "center", cursor: "pointer" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "#f5a623"} onMouseLeave={e => e.currentTarget.style.borderColor = "#2a2a2a"}>
-            <div style={{ fontSize: "28px", marginBottom: "6px" }}>📸</div>
-            <p style={{ color: "#555", fontSize: "13px" }}>Cliquer pour ajouter des photos</p>
-          </div>
-        </div>
-        <div style={{ background: "#111", borderRadius: "16px", padding: "28px", border: "1px solid #1e1e1e" }}>
-          <div style={{ fontSize: "11px", color: "#888", letterSpacing: "3px", marginBottom: "16px" }}>💡 MON CONSEIL</div>
-          <textarea value={attraction.tip} onChange={e => { const val = e.target.value; setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, tip: val } : a) } : p) })); }} rows={4} style={{ width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "12px 16px", color: "#e8e0d0", fontSize: "14px", fontFamily: "inherit", resize: "vertical" }} />
-        </div>
-      </div>
-    );
-  };
-
-  // LOGIN ADMIN
   if (!adminUnlocked && mode === "admin") {
     return (
       <>
         <style>{CSS}</style>
-        <div style={{ minHeight: "100vh", background: "#0d0d0d", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ background: "#111", borderRadius: "16px", padding: "40px", border: "1px solid #1e1e1e", width: "360px" }}>
-            <h2 style={{ fontFamily: "'Bebas Neue'", fontSize: "32px", color: "#fff", marginBottom: "8px", letterSpacing: "2px" }}>ACCÈS ADMIN</h2>
-            <p style={{ color: "#555", fontSize: "13px", marginBottom: "24px" }}>Mot de passe : <span style={{ color: "#888" }}>admin</span></p>
-            <input type="password" value={adminPassword} onChange={e => setAdminPassword(e.target.value)} onKeyDown={e => e.key === "Enter" && adminPassword === "admin" && setAdminUnlocked(true)} placeholder="Mot de passe..." style={{ width: "100%", background: "#1a1a1a", border: "1px solid #2a2a2a", borderRadius: "8px", padding: "12px 16px", color: "#e8e0d0", fontSize: "14px", fontFamily: "inherit", marginBottom: "16px" }} />
-            <button onClick={() => adminPassword === "admin" && setAdminUnlocked(true)} style={{ width: "100%", background: "#f5a623", color: "#000", border: "none", padding: "12px", borderRadius: "8px", cursor: "pointer", fontWeight: "700", fontFamily: "inherit", fontSize: "14px" }}>ENTRER</button>
-            <button onClick={() => setMode("visitor")} style={{ width: "100%", background: "transparent", border: "none", color: "#555", cursor: "pointer", marginTop: "12px", fontFamily: "inherit", fontSize: "13px" }}>← Retour au blog</button>
-          </div>
-        </div>
+        <Nav mode={mode} setMode={setMode} setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} setAdminParkView={setAdminParkView} data={data} adminUnlocked={adminUnlocked} />
+        <AdminLogin setMode={setMode} setAdminUnlocked={setAdminUnlocked} />
       </>
     );
   }
@@ -1022,35 +1170,15 @@ export default function ParkBlog() {
   return (
     <>
       <style>{CSS}</style>
-      <div style={{ minHeight: "100vh", background: "#0d0d0d" }}>
-        <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "rgba(13,13,13,0.95)", backdropFilter: "blur(20px)", borderBottom: "1px solid #1a1a1a", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: "64px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "24px" }}>
-            <div onClick={() => { setView(mode === "admin" ? "admin-home" : "home"); setSelectedPark(null); setSelectedAttraction(null); }} style={{ fontFamily: "'Bebas Neue'", fontSize: "22px", color: "#fff", cursor: "pointer", letterSpacing: "3px", whiteSpace: "nowrap" }}>
-              PARCS & <span style={{ color: "#f5a623" }}>SENSATIONS</span>
-            </div>
-            <div style={{ display: "flex", gap: "4px", flexWrap: "wrap" }}>
-              {data.parks.map(p => (
-                <button key={p.id} onClick={() => { setSelectedPark(p.id); setSelectedAttraction(null); setParkTab("attractions"); setAdminParkView("attractions"); setView(mode === "admin" ? "admin-park" : "park"); }} style={{ background: selectedPark === p.id ? "#f5a623" : "transparent", color: selectedPark === p.id ? "#000" : "#666", border: "none", padding: "6px 14px", borderRadius: "6px", cursor: "pointer", fontFamily: "inherit", fontSize: "13px", fontWeight: selectedPark === p.id ? "700" : "400", transition: "all 0.2s" }}
-                  onMouseEnter={e => selectedPark !== p.id && (e.target.style.color = "#fff")}
-                  onMouseLeave={e => selectedPark !== p.id && (e.target.style.color = "#666")}>
-                  {p.emoji} {p.name}
-                </button>
-              ))}
-            </div>
-          </div>
-          <button onClick={() => { setMode(mode === "admin" ? "visitor" : "admin"); setView(mode === "admin" ? "home" : "admin-home"); }} style={{ background: mode === "admin" ? "#f5a623" : "transparent", color: mode === "admin" ? "#000" : "#555", border: "1px solid", borderColor: mode === "admin" ? "#f5a623" : "#2a2a2a", padding: "6px 14px", borderRadius: "6px", cursor: "pointer", fontFamily: "inherit", fontSize: "12px", fontWeight: "600", whiteSpace: "nowrap" }}>
-            {mode === "admin" ? "⚡ MODE ADMIN" : "Admin"}
-          </button>
-        </nav>
-        <main>
-          {mode === "visitor" && view === "home" && renderHome()}
-          {mode === "visitor" && view === "park" && renderPark()}
-          {mode === "visitor" && view === "attraction" && renderAttraction()}
-          {mode === "admin" && view === "admin-home" && renderAdminHome()}
-          {mode === "admin" && view === "admin-park" && renderAdminPark()}
-          {mode === "admin" && view === "admin-attraction" && renderAdminAttraction()}
-        </main>
-      </div>
+      <Nav mode={mode} setMode={setMode} setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} setAdminParkView={setAdminParkView} data={data} adminUnlocked={adminUnlocked} />
+      <main>
+        {mode === "visitor" && view === "home" && <HomePage data={data} setSelectedPark={setSelectedPark} setParkTab={setParkTab} setView={setView} />}
+        {mode === "visitor" && view === "park" && park && <ParkPage park={park} parkTab={parkTab} setParkTab={setParkTab} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
+        {mode === "visitor" && view === "attraction" && <AttractionPage attraction={attraction} park={park} onBack={() => setView("park")} />}
+        {mode === "admin" && view === "admin-home" && <AdminHome data={data} setSelectedPark={setSelectedPark} setAdminParkView={setAdminParkView} setView={setView} setShowAddPark={setShowAddPark} showAddPark={showAddPark} newPark={newPark} setNewPark={setNewPark} addPark={addPark} />}
+        {mode === "admin" && view === "admin-park" && park && <AdminPark park={park} adminParkView={adminParkView} setAdminParkView={setAdminParkView} data={data} setData={setData} setView={setView} setSelectedAttraction={setSelectedAttraction} />}
+        {mode === "admin" && view === "admin-attraction" && attraction && <AdminAttractionPage attraction={attraction} park={park} setData={setData} onBack={() => setView("admin-park")} />}
+      </main>
     </>
   );
 }
