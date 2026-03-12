@@ -1174,8 +1174,32 @@ function AdminLogin({ setMode, setAdminUnlocked }) {
 // ============================================================
 // APP PRINCIPALE
 // ============================================================
+const API_URL = "https://sami-parks-api.sammy-avcuoglu.workers.dev";
+
 export default function ParkBlog() {
   const [data, setData] = useState(INITIAL_DATA);
+  const [dbLoaded, setDbLoaded] = useState(false);
+
+  // Charger les données depuis la base au démarrage
+  useEffect(() => {
+    fetch(API_URL)
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.parks && d.parks.length > 0) setData(d);
+        setDbLoaded(true);
+      })
+      .catch(() => setDbLoaded(true));
+  }, []);
+
+  // Sauvegarder dans la base à chaque changement
+  useEffect(() => {
+    if (!dbLoaded) return;
+    fetch(API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    }).catch(console.error);
+  }, [data, dbLoaded]);
   const [mode, setMode] = useState("visitor");
   const [view, setView] = useState("home");
   const [selectedPark, setSelectedPark] = useState(null);
