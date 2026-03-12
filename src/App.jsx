@@ -84,6 +84,25 @@ function discountedPrice(price, pct) {
 }
 
 // ============================================================
+// CLOUDINARY CONFIG
+// ============================================================
+const CLOUDINARY_CLOUD_NAME = "dgllplwhr";
+const CLOUDINARY_UPLOAD_PRESET = "park-blog";
+
+async function uploadToCloudinary(file) {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("upload_preset", CLOUDINARY_UPLOAD_PRESET);
+  const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  const data = await res.json();
+  if (!data.secure_url) throw new Error("Upload échoué");
+  return { url: data.secure_url, caption: file.name, public_id: data.public_id };
+}
+
+// ============================================================
 // CSS GLOBAL
 // ============================================================
 const CSS = `
@@ -946,11 +965,14 @@ function AdminAttractionPage({ attraction, park, setData, onBack }) {
   const handleBioGenerated = (bio) => {
     setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, bio } : a) } : p) }));
   };
-  const handlePhotoUpload = (files) => {
-    const readers = Array.from(files).map(file => new Promise(res => { const r = new FileReader(); r.onload = e => res({ url: e.target.result, caption: file.name }); r.readAsDataURL(file); }));
-    Promise.all(readers).then(newPhotos => {
+  const [uploading, setUploading] = useState(false);
+  const handlePhotoUpload = async (files) => {
+    setUploading(true);
+    try {
+      const newPhotos = await Promise.all(Array.from(files).map(uploadToCloudinary));
       setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: [...a.photos, ...newPhotos] } : a) } : p) }));
-    });
+    } catch (e) { alert("Erreur upload : " + e.message); }
+    setUploading(false);
   };
   const updateTip = (val) => {
     setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, tip: val } : a) } : p) }));
@@ -979,12 +1001,12 @@ function AdminAttractionPage({ attraction, park, setData, onBack }) {
             ))}
           </div>
         )}
-        <div onClick={() => { const input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.multiple = true; input.onchange = e => handlePhotoUpload(e.target.files); input.click(); }}
-          style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 24, textAlign: "center", cursor: "pointer" }}
+        <div onClick={() => { if (uploading) return; const input = document.createElement("input"); input.type = "file"; input.accept = "image/*"; input.multiple = true; input.onchange = e => handlePhotoUpload(e.target.files); input.click(); }}
+          style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 24, textAlign: "center", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }}
           onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"}
           onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}>
-          <div style={{ fontSize: 28, marginBottom: 6 }}>📸</div>
-          <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>Cliquez pour ajouter des photos</p>
+          <div style={{ fontSize: 28, marginBottom: 6 }}>{uploading ? "⏳" : "📸"}</div>
+          <p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{uploading ? "Upload en cours..." : "Cliquez pour ajouter des photos"}</p>
         </div>
       </div>
 
@@ -1013,9 +1035,14 @@ function AdminShop({ park, onUpdate }) {
   const openAdd = () => { setForm(EMPTY_PRODUCT); setEditProduct(null); setView("add-product"); };
   const openEdit = (p) => { setForm({ ...p }); setEditProduct(p.id); setView("add-product"); };
 
-  const handlePhotoUpload = (files) => {
-    const readers = Array.from(files).map(file => new Promise(res => { const r = new FileReader(); r.onload = e => res({ url: e.target.result, caption: file.name }); r.readAsDataURL(file); }));
-    Promise.all(readers).then(newPhotos => setF("photos", [...form.photos, ...newPhotos]));
+  const [uploading, setUploading] = useState(false);
+  const handlePhotoUpload = async (files) => {
+    setUploading(true);
+    try {
+      const newPhotos = await Promise.all(Array.from(files).map(uploadToCloudinary));
+      setF("photos", [...form.photos, ...newPhotos]);
+    } catch (e) { alert("Erreur upload : " + e.message); }
+    setUploading(false);
   };
   const toggleSize = (size) => setForm(f => ({ ...f, availableSizes: f.availableSizes.includes(size) ? f.availableSizes.filter(s => s !== size) : [...f.availableSizes, size] }));
   const toggleSizeType = (type, size) => setForm(f => { const current = f.sizes[type]; const updated = current.includes(size) ? current.filter(s => s !== size) : [...current, size]; return { ...f, sizes: { ...f.sizes, [type]: updated } }; });
@@ -1074,7 +1101,7 @@ function AdminShop({ park, onUpdate }) {
         <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 20, border: "2px solid #e8e0cc" }}>
           <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📷 Photos ({form.photos.length})</h3>
           {form.photos.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>{form.photos.map((p, i) => <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "1", position: "relative" }}><img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /><button onClick={() => setF("photos", form.photos.filter((_, idx) => idx !== i))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 11 }}>×</button></div>)}</div>}
-          <div onClick={() => { const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.multiple = true; i.onchange = e => handlePhotoUpload(e.target.files); i.click(); }} style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 20, textAlign: "center", cursor: "pointer" }} onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"} onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}><div style={{ fontSize: 28, marginBottom: 4 }}>📸</div><p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>Cliquez pour ajouter des photos</p></div>
+          <div onClick={() => { if (uploading) return; const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.multiple = true; i.onchange = e => handlePhotoUpload(e.target.files); i.click(); }} style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 20, textAlign: "center", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }} onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"} onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}><div style={{ fontSize: 28, marginBottom: 4 }}>{uploading ? "⏳" : "📸"}</div><p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{uploading ? "Upload en cours..." : "Cliquez pour ajouter des photos"}</p></div>
         </div>
       ].map((el, i) => <div key={i}>{el}</div>)}
       <div style={{ display: "flex", gap: 12 }}>
