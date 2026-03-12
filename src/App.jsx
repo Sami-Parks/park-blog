@@ -88,6 +88,20 @@ function discountedPrice(price, pct) {
 // ============================================================
 const CLOUDINARY_CLOUD_NAME = "dgllplwhr";
 const CLOUDINARY_UPLOAD_PRESET = "park-blog";
+const CLOUDINARY_DELETE_WORKER = "https://sami-parks-cloudinary-delete.sammy-avcuoglu.workers.dev";
+
+async function deleteFromCloudinary(public_id) {
+  if (!public_id) return;
+  try {
+    await fetch(CLOUDINARY_DELETE_WORKER, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ public_id }),
+    });
+  } catch (e) {
+    console.error("Erreur suppression Cloudinary:", e);
+  }
+}
 
 async function uploadToCloudinary(file) {
   const formData = new FormData();
@@ -996,7 +1010,7 @@ function AdminAttractionPage({ attraction, park, setData, onBack }) {
             {attraction.photos.map((photo, i) => (
               <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "4/3", position: "relative" }}>
                 <img src={photo.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                <button onClick={() => setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: a.photos.filter((_, idx) => idx !== i) } : a) } : p) }))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 12 }}>×</button>
+                <button onClick={() => { deleteFromCloudinary(photo.public_id); setData(d => ({ ...d, parks: d.parks.map(p => p.id === park.id ? { ...p, attractions: p.attractions.map(a => a.id === attraction.id ? { ...a, photos: a.photos.filter((_, idx) => idx !== i) } : a) } : p) })); }} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 22, height: 22, cursor: "pointer", fontSize: 12 }}>×</button>
               </div>
             ))}
           </div>
@@ -1100,7 +1114,7 @@ function AdminShop({ park, onUpdate }) {
         </div>,
         <div style={{ background: "#fff", borderRadius: 14, padding: 24, marginBottom: 20, border: "2px solid #e8e0cc" }}>
           <h3 style={{ fontFamily: "'Bangers', cursive", fontSize: 22, color: "#0d1b4b", marginBottom: 16 }}>📷 Photos ({form.photos.length})</h3>
-          {form.photos.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>{form.photos.map((p, i) => <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "1", position: "relative" }}><img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /><button onClick={() => setF("photos", form.photos.filter((_, idx) => idx !== i))} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 11 }}>×</button></div>)}</div>}
+          {form.photos.length > 0 && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>{form.photos.map((p, i) => <div key={i} style={{ borderRadius: 8, overflow: "hidden", aspectRatio: "1", position: "relative" }}><img src={p.url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /><button onClick={() => { deleteFromCloudinary(p.public_id); setF("photos", form.photos.filter((_, idx) => idx !== i)); }} style={{ position: "absolute", top: 4, right: 4, background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", borderRadius: "50%", width: 20, height: 20, cursor: "pointer", fontSize: 11 }}>×</button></div>)}</div>}
           <div onClick={() => { if (uploading) return; const i = document.createElement("input"); i.type = "file"; i.accept = "image/*"; i.multiple = true; i.onchange = e => handlePhotoUpload(e.target.files); i.click(); }} style={{ border: "2px dashed #e8e0cc", borderRadius: 12, padding: 20, textAlign: "center", cursor: uploading ? "wait" : "pointer", opacity: uploading ? 0.7 : 1 }} onMouseEnter={e => e.currentTarget.style.borderColor = "#e8c547"} onMouseLeave={e => e.currentTarget.style.borderColor = "#e8e0cc"}><div style={{ fontSize: 28, marginBottom: 4 }}>{uploading ? "⏳" : "📸"}</div><p style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{uploading ? "Upload en cours..." : "Cliquez pour ajouter des photos"}</p></div>
         </div>
       ].map((el, i) => <div key={i}>{el}</div>)}
