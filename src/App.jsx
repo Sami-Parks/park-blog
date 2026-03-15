@@ -260,23 +260,17 @@ function AIBioGenerator({ attraction, parkName, onBioGenerated }) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-function Nav({ setView, selectedPark, setSelectedPark, setSelectedAttraction, setParkTab, data }) {
+function Nav({ route, data }) {
   return (
     <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "#0d1b4b", borderBottom: "3px solid #e8c547", padding: "0 24px", display: "flex", alignItems: "center", height: 60, gap: 20 }}>
-      <div
-        onClick={() => { setView("home"); setSelectedPark(null); setSelectedAttraction(null); }}
-        style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#e8c547", cursor: "pointer", letterSpacing: 2, lineHeight: 1 }}
-      >
+      <div onClick={() => navigate("/")} style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#e8c547", cursor: "pointer", letterSpacing: 2, lineHeight: 1 }}>
         SAMI<span style={{ color: "#fff" }}>PARKS</span>
       </div>
       <div style={{ display: "flex", gap: 4 }}>
         {data.parks.map(p => (
-          <button
-            key={p.id}
-            className="nav-link"
-            onClick={() => { setSelectedPark(p.id); setSelectedAttraction(null); setParkTab("attractions"); setView("park"); }}
-            style={{ background: selectedPark === p.id ? "#e8c547" : "transparent", color: selectedPark === p.id ? "#0d1b4b" : "#aab4cc", border: "none", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, transition: "all 0.2s" }}
-          >
+          <button key={p.id} className="nav-link"
+            onClick={() => navigate(`/parc/${p.id}`)}
+            style={{ background: route.parkId === p.id ? "#e8c547" : "transparent", color: route.parkId === p.id ? "#0d1b4b" : "#aab4cc", border: "none", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, transition: "all 0.2s" }}>
             {p.emoji} {p.name}
           </button>
         ))}
@@ -288,27 +282,18 @@ function Nav({ setView, selectedPark, setSelectedPark, setSelectedAttraction, se
 // ============================================================
 // HOME PAGE
 // ============================================================
-function HomePage({ data, setSelectedPark, setParkTab, setView }) {
+function HomePage({ data }) {
   return (
     <div style={{ minHeight: "100vh" }}>
-      {/* HERO */}
       <div className="hero-bg" style={{ padding: "80px 24px 60px", position: "relative" }}>
         <div style={{ maxWidth: 900, margin: "0 auto", display: "grid", gridTemplateColumns: data.profile.photo ? "1fr 1fr" : "1fr", gap: 48, alignItems: "center", position: "relative", zIndex: 1 }}>
           <div>
-            <div style={{ display: "inline-block", background: "#e8c547", color: "#0d1b4b", fontWeight: 800, fontSize: 11, letterSpacing: 3, padding: "4px 14px", borderRadius: 20, marginBottom: 20 }}>
-              BLOG PARCS D'ATTRACTIONS
-            </div>
+            <div style={{ display: "inline-block", background: "#e8c547", color: "#0d1b4b", fontWeight: 800, fontSize: 11, letterSpacing: 3, padding: "4px 14px", borderRadius: 20, marginBottom: 20 }}>BLOG PARCS D'ATTRACTIONS</div>
             <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(52px, 8vw, 90px)", color: "#fff", lineHeight: 0.95, letterSpacing: 2, marginBottom: 24 }}>
               BIENVENUE<br />SUR MON<br /><span style={{ color: "#e8c547" }}>BLOG !</span>
             </h1>
-            <p style={{ color: "#aab4cc", fontSize: 16, lineHeight: 1.7, maxWidth: 480, marginBottom: 32, fontWeight: 600 }}>
-              {data.profile.bio}
-            </p>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button className="btn-primary" onClick={() => { setSelectedPark(data.parks[0]?.id); setParkTab("attractions"); setView("park"); }}>
-                Découvrir les parcs →
-              </button>
-            </div>
+            <p style={{ color: "#aab4cc", fontSize: 16, lineHeight: 1.7, maxWidth: 480, marginBottom: 32, fontWeight: 600 }}>{data.profile.bio}</p>
+            <button className="btn-primary" onClick={() => data.parks[0] && navigate(`/parc/${data.parks[0].id}`)}>Découvrir les parcs →</button>
           </div>
           {data.profile.photo && (
             <div style={{ display: "flex", justifyContent: "center" }}>
@@ -318,33 +303,21 @@ function HomePage({ data, setSelectedPark, setParkTab, setView }) {
             </div>
           )}
         </div>
-        {/* Stripe décoratif */}
         <div className="stripe-accent" style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 8 }} />
       </div>
-
-      {/* PARCS VISITÉS */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "72px 24px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 40 }}>
-          <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 48, color: "#0d1b4b", letterSpacing: 2 }}>
-            PARCS VISITÉS
-          </h2>
+          <h2 style={{ fontFamily: "'Bangers', cursive", fontSize: 48, color: "#0d1b4b", letterSpacing: 2 }}>PARCS VISITÉS</h2>
           <span style={{ color: "#7a8aaa", fontSize: 13, fontWeight: 700 }}>{data.parks.length} parc(s)</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
           {data.parks.map(p => (
-            <div
-              key={p.id}
-              className="park-card"
-              onClick={() => { setSelectedPark(p.id); setParkTab("attractions"); setView("park"); }}
-              style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "2px solid #e8e0cc", boxShadow: "0 4px 16px rgba(13,27,75,0.07)" }}
-            >
-              {/* Bannière colorée */}
+            <div key={p.id} className="park-card" onClick={() => navigate(`/parc/${p.id}`)}
+              style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "2px solid #e8e0cc", boxShadow: "0 4px 16px rgba(13,27,75,0.07)" }}>
               <div style={{ height: 160, background: `linear-gradient(135deg, ${p.coverColor} 0%, ${p.coverColor}cc 100%)`, display: "flex", alignItems: "center", justifyContent: "center", position: "relative", overflow: "hidden" }}>
                 <div className="stripe-accent" style={{ position: "absolute", inset: 0, opacity: 0.4 }} />
-                {p.heroImage
-                  ? <img src={p.heroImage} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
-                  : <span style={{ fontSize: 72, position: "relative", zIndex: 1 }}>{p.emoji}</span>
-                }
+                {p.heroImage ? <img src={p.heroImage} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", position: "absolute", inset: 0 }} />
+                  : <span style={{ fontSize: 72, position: "relative", zIndex: 1 }}>{p.emoji}</span>}
                 <div style={{ position: "absolute", bottom: 10, right: 14, fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 700, letterSpacing: 2 }}>{p.visited}</div>
               </div>
               <div style={{ padding: 24 }}>
@@ -366,15 +339,10 @@ function HomePage({ data, setSelectedPark, setParkTab, setView }) {
 // ============================================================
 // PARK PAGE
 // ============================================================
-function ParkPage({ park, parkTab, setParkTab, setSelectedAttraction, setView }) {
-  const tabs = [
-    ["attractions", "🎢 Attractions"],
-    ["shop", "🛍️ Boutique"],
-  ];
-
+function ParkPage({ park, tab }) {
+  const tabs = [["attractions", "🎢 Attractions"], ["boutique", "🛍️ Boutique"]];
   return (
     <div style={{ minHeight: "100vh", background: "#f5f0e8" }}>
-      {/* HERO PARC */}
       <div style={{ background: park.coverColor, padding: "60px 24px 0", position: "relative", overflow: "hidden" }}>
         <div className="stripe-accent" style={{ position: "absolute", inset: 0, opacity: 0.3 }} />
         {park.heroImage && <img src={park.heroImage} alt="" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", opacity: 0.2 }} />}
@@ -383,27 +351,18 @@ function ParkPage({ park, parkTab, setParkTab, setSelectedAttraction, setView })
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: 4, fontWeight: 700, textTransform: "uppercase" }}>{park.country} · {park.visited}</div>
           <h1 style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(40px,7vw,72px)", color: "#fff", letterSpacing: 3, marginTop: 8 }}>{park.name}</h1>
         </div>
-        {/* ONGLETS */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 4, position: "relative", zIndex: 1, paddingBottom: 0 }}>
-          {tabs.map(([tab, label]) => (
-            <button
-              key={tab}
-              className="tab-btn"
-              onClick={() => setParkTab(tab)}
-              style={{ background: parkTab === tab ? "#e8c547" : "rgba(255,255,255,0.1)", color: parkTab === tab ? "#0d1b4b" : "rgba(255,255,255,0.7)", border: "none", padding: "12px 20px", borderRadius: "12px 12px 0 0", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: parkTab === tab ? 800 : 600 }}
-            >
+        <div style={{ display: "flex", justifyContent: "center", gap: 4, position: "relative", zIndex: 1 }}>
+          {tabs.map(([t, label]) => (
+            <button key={t} className="tab-btn" onClick={() => navigate(`/parc/${park.id}/${t}`)}
+              style={{ background: tab === t ? "#e8c547" : "rgba(255,255,255,0.1)", color: tab === t ? "#0d1b4b" : "rgba(255,255,255,0.7)", border: "none", padding: "12px 20px", borderRadius: "12px 12px 0 0", cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: tab === t ? 800 : 600 }}>
               {label}
             </button>
           ))}
         </div>
       </div>
-
-      {/* CONTENU ONGLET */}
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 24px" }}>
-        {parkTab === "attractions" && <AttractionsTab park={park} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
-        {parkTab === "restaurants" && <RestaurantsTab park={park} />}
-        {parkTab === "shop" && <ShopTab park={park} />}
-        {parkTab === "conseils" && <ConseilsTab park={park} />}
+        {tab === "attractions" && <AttractionsTab park={park} />}
+        {tab === "boutique" && <ShopTab park={park} />}
       </div>
     </div>
   );
@@ -412,7 +371,7 @@ function ParkPage({ park, parkTab, setParkTab, setSelectedAttraction, setView })
 // ============================================================
 // ONGLET ATTRACTIONS
 // ============================================================
-function AttractionsTab({ park, setSelectedAttraction, setView }) {
+function AttractionsTab({ park }) {
   return (
     <div>
       {park.globalTip && (
@@ -432,7 +391,7 @@ function AttractionsTab({ park, setSelectedAttraction, setView }) {
           <div
             key={attr.id}
             className="attr-card"
-            onClick={() => { setSelectedAttraction(attr.id); setView("attraction"); }}
+            onClick={() => { navigate(`/parc/${park.id}/attraction/${attr.id}`); }}
             style={{ background: "#fff", borderRadius: 16, overflow: "hidden", border: "2px solid #e8e0cc" }}
           >
             {/* Photo ou placeholder */}
@@ -1162,50 +1121,57 @@ function AdminLogin({ setMode, setAdminUnlocked }) {
 }
 
 // ============================================================
-// APP PRINCIPALE
+// ============================================================
+// HASH ROUTER
 // ============================================================
 const API_URL = "https://sami-parks-api.sammy-avcuoglu.workers.dev";
 
+function parseHash() {
+  const hash = window.location.hash.replace("#", "") || "/";
+  const parts = hash.split("/").filter(Boolean);
+  if (parts.length === 0) return { view: "home" };
+  if (parts[0] === "parc" && parts[1]) {
+    if (parts[2] === "attraction" && parts[3]) return { view: "attraction", parkId: parts[1], attractionId: parts[3] };
+    return { view: "park", parkId: parts[1], tab: parts[2] || "attractions" };
+  }
+  return { view: "home" };
+}
+
+function navigate(path) {
+  window.location.hash = path;
+}
+
+// ============================================================
+// APP PRINCIPALE
+// ============================================================
 export default function ParkBlog() {
   const [data, setData] = useState(INITIAL_DATA);
-  const [dbLoaded, setDbLoaded] = useState(false);
+  const [route, setRoute] = useState(parseHash);
 
-  // Charger les données depuis la base au démarrage
   useEffect(() => {
     fetch(API_URL)
       .then(r => r.json())
-      .then(d => {
-        if (d && d.parks && d.parks.length > 0) setData(d);
-        setDbLoaded(true);
-      })
-      .catch(() => setDbLoaded(true));
+      .then(d => { if (d && d.parks && d.parks.length > 0) setData(d); })
+      .catch(() => {});
   }, []);
 
-  // Sauvegarder dans la base à chaque changement
   useEffect(() => {
-    if (!dbLoaded) return;
-    fetch(API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data),
-    }).catch(console.error);
-  }, [data, dbLoaded]);
-  const [view, setView] = useState("home");
-  const [selectedPark, setSelectedPark] = useState(null);
-  const [selectedAttraction, setSelectedAttraction] = useState(null);
-  const [parkTab, setParkTab] = useState("attractions");
+    const onHash = () => setRoute(parseHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
-  const park = selectedPark ? data.parks.find(p => p.id === selectedPark) : null;
-  const attraction = park && selectedAttraction ? park.attractions.find(a => a.id === selectedAttraction) : null;
+  const park = route.parkId ? data.parks.find(p => p.id === route.parkId) : null;
+  const attraction = park && route.attractionId ? park.attractions.find(a => a.id === route.attractionId) : null;
 
   return (
     <>
       <style>{CSS}</style>
-      <Nav setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} data={data} />
+      <Nav route={route} data={data} />
       <main>
-        {view === "home" && <HomePage data={data} setSelectedPark={setSelectedPark} setParkTab={setParkTab} setView={setView} />}
-        {view === "park" && park && <ParkPage park={park} parkTab={parkTab} setParkTab={setParkTab} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
-        {view === "attraction" && <AttractionPage attraction={attraction} park={park} onBack={() => setView("park")} />}
+        {route.view === "home" && <HomePage data={data} />}
+        {route.view === "park" && park && <ParkPage park={park} tab={route.tab || "attractions"} />}
+        {route.view === "attraction" && attraction && park && <AttractionPage attraction={attraction} park={park} onBack={() => navigate(`/parc/${park.id}`)} />}
       </main>
     </>
   );
