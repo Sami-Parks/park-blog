@@ -369,9 +369,7 @@ function HomePage({ data, setSelectedPark, setParkTab, setView }) {
 function ParkPage({ park, parkTab, setParkTab, setSelectedAttraction, setView }) {
   const tabs = [
     ["attractions", "🎢 Attractions"],
-    ["restaurants", "🍽️ Restaurants"],
     ["shop", "🛍️ Boutique"],
-    ["conseils", "💡 Conseils & Accès"],
   ];
 
   return (
