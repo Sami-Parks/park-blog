@@ -260,35 +260,27 @@ function AIBioGenerator({ attraction, parkName, onBioGenerated }) {
 // ============================================================
 // NAVIGATION
 // ============================================================
-function Nav({ mode, setMode, setView, selectedPark, setSelectedPark, setSelectedAttraction, setParkTab, setAdminParkView, data, adminUnlocked }) {
+function Nav({ setView, selectedPark, setSelectedPark, setSelectedAttraction, setParkTab, data }) {
   return (
-    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "#0d1b4b", borderBottom: "3px solid #e8c547", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 60 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-        <div
-          onClick={() => { setView(mode === "admin" ? "admin-home" : "home"); setSelectedPark(null); setSelectedAttraction(null); }}
-          style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#e8c547", cursor: "pointer", letterSpacing: 2, lineHeight: 1 }}
-        >
-          SAMI<span style={{ color: "#fff" }}>PARKS</span>
-        </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          {data.parks.map(p => (
-            <button
-              key={p.id}
-              className="nav-link"
-              onClick={() => { setSelectedPark(p.id); setSelectedAttraction(null); setParkTab("attractions"); setAdminParkView("attractions"); setView(mode === "admin" ? "admin-park" : "park"); }}
-              style={{ background: selectedPark === p.id ? "#e8c547" : "transparent", color: selectedPark === p.id ? "#0d1b4b" : "#aab4cc", border: "none", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, transition: "all 0.2s" }}
-            >
-              {p.emoji} {p.name}
-            </button>
-          ))}
-        </div>
-      </div>
-      <button
-        onClick={() => { setMode(mode === "admin" ? "visitor" : "admin"); setView(mode === "admin" ? "home" : "admin-home"); }}
-        style={{ background: mode === "admin" ? "#e8c547" : "transparent", color: mode === "admin" ? "#0d1b4b" : "#aab4cc", border: "1px solid", borderColor: mode === "admin" ? "#e8c547" : "#2a3a6b", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 12, fontWeight: 700 }}
+    <nav style={{ position: "sticky", top: 0, zIndex: 100, background: "#0d1b4b", borderBottom: "3px solid #e8c547", padding: "0 24px", display: "flex", alignItems: "center", height: 60, gap: 20 }}>
+      <div
+        onClick={() => { setView("home"); setSelectedPark(null); setSelectedAttraction(null); }}
+        style={{ fontFamily: "'Bangers', cursive", fontSize: 26, color: "#e8c547", cursor: "pointer", letterSpacing: 2, lineHeight: 1 }}
       >
-        {mode === "admin" ? "⚡ Admin" : "Admin"}
-      </button>
+        SAMI<span style={{ color: "#fff" }}>PARKS</span>
+      </div>
+      <div style={{ display: "flex", gap: 4 }}>
+        {data.parks.map(p => (
+          <button
+            key={p.id}
+            className="nav-link"
+            onClick={() => { setSelectedPark(p.id); setSelectedAttraction(null); setParkTab("attractions"); setView("park"); }}
+            style={{ background: selectedPark === p.id ? "#e8c547" : "transparent", color: selectedPark === p.id ? "#0d1b4b" : "#aab4cc", border: "none", padding: "5px 14px", borderRadius: 20, cursor: "pointer", fontFamily: "'Nunito', sans-serif", fontSize: 13, fontWeight: 700, transition: "all 0.2s" }}
+          >
+            {p.emoji} {p.name}
+          </button>
+        ))}
+      </div>
     </nav>
   );
 }
@@ -1200,49 +1192,22 @@ export default function ParkBlog() {
       body: JSON.stringify(data),
     }).catch(console.error);
   }, [data, dbLoaded]);
-  const [mode, setMode] = useState("visitor");
   const [view, setView] = useState("home");
   const [selectedPark, setSelectedPark] = useState(null);
   const [selectedAttraction, setSelectedAttraction] = useState(null);
   const [parkTab, setParkTab] = useState("attractions");
-  const [adminPassword, setAdminPassword] = useState("");
-  const [adminUnlocked, setAdminUnlocked] = useState(false);
-  const [showAddPark, setShowAddPark] = useState(false);
-  const [newPark, setNewPark] = useState({ name: "", country: "", emoji: "🎢", visited: new Date().getFullYear().toString(), globalTip: "" });
-  const [adminParkView, setAdminParkView] = useState("attractions");
 
   const park = selectedPark ? data.parks.find(p => p.id === selectedPark) : null;
   const attraction = park && selectedAttraction ? park.attractions.find(a => a.id === selectedAttraction) : null;
 
-  const addPark = () => {
-    if (!newPark.name) return;
-    const id = newPark.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
-    setData(d => ({ ...d, parks: [...d.parks, { ...newPark, id, coverColor: "#1a1a6e", accentColor: "#e8c547", heroImage: null, attractions: [], restaurants: [], access: { transport: "", parking: "", address: "", hours: "" }, tickets: { adult: "", child: "", annualPass: "", tips: "" }, shop: { categories: [], products: [] } }] }));
-    setNewPark({ name: "", country: "", emoji: "🎢", visited: new Date().getFullYear().toString(), globalTip: "" });
-    setShowAddPark(false);
-  };
-
-  if (!adminUnlocked && mode === "admin") {
-    return (
-      <>
-        <style>{CSS}</style>
-        <Nav mode={mode} setMode={setMode} setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} setAdminParkView={setAdminParkView} data={data} adminUnlocked={adminUnlocked} />
-        <AdminLogin setMode={setMode} setAdminUnlocked={setAdminUnlocked} />
-      </>
-    );
-  }
-
   return (
     <>
       <style>{CSS}</style>
-      <Nav mode={mode} setMode={setMode} setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} setAdminParkView={setAdminParkView} data={data} adminUnlocked={adminUnlocked} />
+      <Nav setView={setView} selectedPark={selectedPark} setSelectedPark={setSelectedPark} setSelectedAttraction={setSelectedAttraction} setParkTab={setParkTab} data={data} />
       <main>
-        {mode === "visitor" && view === "home" && <HomePage data={data} setSelectedPark={setSelectedPark} setParkTab={setParkTab} setView={setView} />}
-        {mode === "visitor" && view === "park" && park && <ParkPage park={park} parkTab={parkTab} setParkTab={setParkTab} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
-        {mode === "visitor" && view === "attraction" && <AttractionPage attraction={attraction} park={park} onBack={() => setView("park")} />}
-        {mode === "admin" && view === "admin-home" && <AdminHome data={data} setSelectedPark={setSelectedPark} setAdminParkView={setAdminParkView} setView={setView} setShowAddPark={setShowAddPark} showAddPark={showAddPark} newPark={newPark} setNewPark={setNewPark} addPark={addPark} />}
-        {mode === "admin" && view === "admin-park" && park && <AdminPark park={park} adminParkView={adminParkView} setAdminParkView={setAdminParkView} data={data} setData={setData} setView={setView} setSelectedAttraction={setSelectedAttraction} />}
-        {mode === "admin" && view === "admin-attraction" && attraction && <AdminAttractionPage attraction={attraction} park={park} setData={setData} onBack={() => setView("admin-park")} />}
+        {view === "home" && <HomePage data={data} setSelectedPark={setSelectedPark} setParkTab={setParkTab} setView={setView} />}
+        {view === "park" && park && <ParkPage park={park} parkTab={parkTab} setParkTab={setParkTab} setSelectedAttraction={setSelectedAttraction} setView={setView} />}
+        {view === "attraction" && <AttractionPage attraction={attraction} park={park} onBack={() => setView("park")} />}
       </main>
     </>
   );
