@@ -1172,7 +1172,7 @@ export default function ParkBlog() {
 
   // Charger les données depuis la base au démarrage
   useEffect(() => {
-    fetch(API_URL + "?mode=published")
+    fetch(API_URL)
       .then(r => r.json())
       .then(d => {
         if (d && d.parks && d.parks.length > 0) setData(d);
